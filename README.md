@@ -1,8 +1,15 @@
+<p align="center">
+  <img src="assets/icon.svg" width="128" height="128" alt="Camper">
+</p>
+
 # Camper
 
 A Swift macro library providing dependency injection infrastructure, code generation utilities, and common patterns for iOS/macOS apps.
 
-**Requirements:** Swift 6.2+, iOS 17+ / macOS 14+
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fnullic%2FCamper%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/nullic/Camper)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fnullic%2FCamper%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/nullic/Camper)
+[![](https://img.shields.io/github/v/release/nullic/Camper)](https://github.com/nullic/Camper/releases)
+[![](https://img.shields.io/github/license/nullic/Camper)](LICENSE)
 
 ## Installation
 
