@@ -32,7 +32,7 @@ public macro Injection(mock: Bool = true, build: Bool = false, injectorType: Any
 ///         @Output var router: Router
 ///     }
 @attached(peer, names: named(DefaultInjector), suffixed(Mock))
-@attached(member, names: named(Outputs), named(Dependencies), named(dependencies), named(init()), named(init(dependencies:)), named(getValue()), named(subscript(dynamicMember:)))
+@attached(member, names: arbitrary)
 @attached(extension, names: named(mocked), named(DependenciesMock), named(mock))
 public macro Injector(mock: Bool = false, dependenciesMock: Bool = false) = #externalMacro(module: "CamperMacros", type: "Injector")
 
