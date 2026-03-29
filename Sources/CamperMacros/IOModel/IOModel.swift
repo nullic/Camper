@@ -87,6 +87,19 @@ public enum IOModel {
 
         result.append(DeclSyntax(insertArraySyntax))
 
+        if let unique = classDecl.uniqueVariable {
+            let uniqueName = unique.identifier
+
+            let replaceSyntax = try FunctionDeclSyntax("@discardableResult \(raw: privacyModifier) class func replace(_ inputs: [\(raw: className.asInputModel)], in context: ModelContext) throws -> [\(raw: className)]") {
+                "let inserted = try inputs.map { try insert($0, in: context) }"
+                "let insertedIDs = inputs.map { $0.\(raw: uniqueName) }"
+                "let descriptor = FetchDescriptor<\(raw: className)>(predicate: #Predicate { !insertedIDs.contains($0.\(raw: uniqueName)) })"
+                "for item in try context.fetch(descriptor) { context.delete(item) }"
+                "return inserted"
+            }
+            result.append(DeclSyntax(replaceSyntax))
+        }
+
         return result
     }
 

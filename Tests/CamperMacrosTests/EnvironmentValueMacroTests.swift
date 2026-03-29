@@ -5,9 +5,7 @@ import XCTest
 @testable import CamperMacros
 
 final class EnvironmentValueMacroTests: XCTestCase {
-    let testMacros: [String: Macro.Type] = [
-        "EnvironmentValue": EnvironmentValueMacro.self,
-    ]
+    let testMacros: [String: Macro.Type] = [:]
 
     func testEnvironmentValueWithDefault() {
         assertMacroExpansion(

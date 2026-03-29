@@ -47,7 +47,7 @@ final class IOModelMacroTests: XCTestCase {
                 var name: String
                 var age: Int
 
-                internal protocol InputModel {
+                internal protocol InputModel: Sendable {
                     var name: String {
                         get
                     }
@@ -150,7 +150,7 @@ final class IOModelMacroTests: XCTestCase {
                     }
                 }
 
-                internal protocol InputModel {
+                internal protocol InputModel: Sendable {
                     var name: String {
                         get
                     }
@@ -255,7 +255,7 @@ final class IOModelMacroTests: XCTestCase {
                     }
                 }
 
-                internal protocol InputModel {
+                internal protocol InputModel: Sendable {
                     var name: String {
                         get
                     }
@@ -371,7 +371,7 @@ final class IOModelMacroTests: XCTestCase {
                     }
                 }
 
-                internal protocol InputModel {
+                internal protocol InputModel: Sendable {
                     var title: String {
                         get
                     }
@@ -465,7 +465,7 @@ final class IOModelMacroTests: XCTestCase {
                 var name: String
                 var bio: String?
 
-                internal protocol InputModel {
+                internal protocol InputModel: Sendable {
                     var name: String {
                         get
                     }
@@ -536,7 +536,7 @@ final class IOModelMacroTests: XCTestCase {
                 let id: UUID
                 var name: String
 
-                internal protocol InputModel {
+                internal protocol InputModel: Sendable {
                     var id: UUID {
                         get
                     }
@@ -607,7 +607,7 @@ final class IOModelMacroTests: XCTestCase {
                 @Attribute(.unique) var id: UUID
                 var name: String
 
-                internal protocol InputModel {
+                internal protocol InputModel: Sendable {
                     var id: UUID {
                         get
                     }
@@ -746,6 +746,79 @@ final class IOModelMacroTests: XCTestCase {
                     try inputs.map {
                         try insert($0, in: context)
                     }
+                }
+                @discardableResult internal class func replace(_ inputs: [Item.InputModel], in context: ModelContext) throws -> [Item] {
+                    let inserted = try inputs.map {
+                        try insert($0, in: context)
+                    }
+                    let insertedIDs = inputs.map {
+                        $0.id
+                    }
+                    let descriptor = FetchDescriptor<Item>(predicate: #Predicate {
+                            !insertedIDs.contains($0.id)
+                        })
+                    for item in try context.fetch(descriptor) {
+                        context.delete(item)
+                    }
+                    return inserted
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testIOModelReplaceMethodNotGeneratedWithoutUniqueProperty() {
+        assertMacroExpansion(
+            """
+            @IOModel
+            class Item {
+                var name: String
+            }
+            """,
+            expandedSource: """
+            class Item {
+                var name: String
+
+                internal protocol InputModel: Sendable {
+                    var name: String {
+                        get
+                    }
+                }
+
+                internal init(input: Item.InputModel, context: ModelContext) throws {
+                    self.name = input.name
+                }
+
+                internal func update(input: Item.InputModel) throws {
+                    self.name = input.name
+                }
+
+                internal struct Snapshot: Item.InputModel, Codable, @unchecked Sendable {
+                    internal var name: String
+                    internal init(name: String) {
+                        self.name = name
+                    }
+                    internal init(_ input: Item.InputModel) {
+                        self.name = input.name
+                    }
+                    private enum CodingKeys: CodingKey {
+                        case name
+                    }
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.container(keyedBy: CodingKeys.self)
+                        try container.encode(name, forKey: .name)
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.container(keyedBy: CodingKeys.self)
+                        self.name = try values.decode(String.self, forKey: .name)
+                    }
+                }
+
+                internal func snapshot(includeLinks: Bool = false) -> Snapshot {
+                    if includeLinks {
+                        return Snapshot(name: name)
+                    }else { return Snapshot(name: name) }
                 }
             }
             """,

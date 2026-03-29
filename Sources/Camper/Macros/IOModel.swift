@@ -9,10 +9,14 @@ import SwiftData
 /// - `update(input:)` method for updating the model
 /// - `snapshot(includeLinks:)` for creating a codable snapshot
 /// - `UniqueFindable` conformance if an `@Attribute(.unique)` property exists
-/// - `unique(_:in:)`, `delete(_:in:)`, `insert(_:in:)` class methods
+/// - `unique(_:in:)`, `delete(_:in:)`, `insert(_:in:)`, `replace(_:in:)` class methods
 ///
 /// For `@Relationship` properties, generates an `Input` enum with cases:
 /// `.ignore`, `.value`, `.input`, and `.link` (unless `@NonLinkable`).
+///
+/// The `replace(_:in:)` method (only when `@Attribute(.unique)` exists) inserts or updates
+/// all provided records and **deletes** any existing records not present in the input,
+/// using a fetch predicate to avoid iterating all records in memory.
 ///
 ///     @Model @IOModel
 ///     class User {
