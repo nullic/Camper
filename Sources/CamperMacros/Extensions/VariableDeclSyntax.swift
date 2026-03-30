@@ -124,6 +124,13 @@ extension VariableDeclSyntax {
     var isIgnorable: Bool { attributes.contains(named: "Ignorable") }
     var isPassed: Bool { attributes.contains(named: "Passed") }
 
+    var hasSetter: Bool {
+        guard let accessorBlock = bindings.first?.accessorBlock,
+              let list = accessorBlock.accessors.as(AccessorDeclListSyntax.self)
+        else { return false }
+        return list.contains { $0.accessorSpecifier.text == "set" }
+    }
+
     var originPath: String? {
         guard let attr = attributes.first(named: "Origin"),
               let args = attr.arguments?.as(LabeledExprListSyntax.self),

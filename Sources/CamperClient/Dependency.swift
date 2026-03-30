@@ -36,3 +36,12 @@ func checkDependency() {
     _ = ViewModelInjectionImpl(injector: module)
     _ = ViewModel2InjectionMock()
 }
+
+@MainActor
+final class SideMenuCoordinator {
+}
+
+@Injection
+protocol SideMenuCoordinatorInjection {
+    var coordinator: SideMenuCoordinator? { get set }
+}

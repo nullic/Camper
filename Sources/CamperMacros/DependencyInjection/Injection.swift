@@ -121,7 +121,7 @@ private extension Injection {
                     "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { injector.\(raw: origin) }"
                 } else if variable.rawIdentifierType.hasSuffix("Injection") {
                     "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { \(raw: variable.rawIdentifierType)Impl(injector: injector, parent: self) }"
-                } else if variable.isPassed {
+                } else if variable.isPassed || variable.hasSetter {
                     "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { get { getPassedObject() } set { setPassedObject(newValue) } }"
                 } else {
                     "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { injector.\(raw: variable.identifier) }"
@@ -153,7 +153,7 @@ private extension Injection {
         let t = variable.rawIdentifierType
         if let origin = variable.originPath { return "    var \(n): \(t) { injector.\(origin) }" }
         if t.hasSuffix("Injection") { return "    var \(n): \(t) { \(t)Impl(injector: injector, parent: self) }" }
-        if variable.isPassed { return "    var \(n): \(t) { get { getPassedObject() } set { setPassedObject(newValue) } }" }
+        if variable.isPassed || variable.hasSetter { return "    var \(n): \(t) { get { getPassedObject() } set { setPassedObject(newValue) } }" }
         return "    var \(n): \(t) { injector.\(n) }"
     }
 }
@@ -173,6 +173,8 @@ private extension Injection {
             for variable in variables {
                 if variable.rawIdentifierType.hasSuffix("Injection") {
                     "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { \(raw: variable.rawIdentifierType)Mock() }"
+                } else if variable.isPassed || variable.hasSetter {
+                    "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType)"
                 } else {
                     "var _\(raw: variable.identifier): \(raw: variable.rawIdentifierType)!"
                     "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { _\(raw: variable.identifier) }"
@@ -203,6 +205,7 @@ private extension Injection {
         let n = variable.identifier
         let t = variable.rawIdentifierType
         if t.hasSuffix("Injection") { return "    var \(n): \(t) { \(t)Mock() }" }
+        if variable.isPassed || variable.hasSetter { return "    var \(n): \(t)" }
         return "    var _\(n): \(t)!\n    var \(n): \(t) { _\(n) }"
     }
 }

@@ -386,6 +386,64 @@ final class InjectionMacroTests: XCTestCase {
         )
     }
 
+    // { get set } properties are treated as passed objects automatically
+    func testInjectionGetSet() {
+        assertMacroExpansion(
+            """
+            @Injection
+            protocol HomeInjection {
+                var coordinator: Coordinator? { get set }
+                var analytics: AnalyticsService { get }
+            }
+            """,
+            expandedSource: """
+            protocol HomeInjection {
+                var coordinator: Coordinator? { get set }
+                var analytics: AnalyticsService { get }
+            }
+
+            internal final class HomeInjectionImpl: HomeInjection, PassedObjectsInjection, CustomStringConvertible, @unchecked Sendable {
+                private var __passedObjects: [String: WeakRef] = [:]
+                private weak var parent: PassedObjectsInjection?
+                private let injector: DefaultInjector
+                internal var description: String {
+                    "\\(type(of: self)) -> \\(parent != nil ? String(describing: parent!) : "nil")"
+                }
+                internal init(injector: DefaultInjector, parent: PassedObjectsInjection? = nil) {
+                    self.injector = injector
+                    self.parent = parent
+                }
+                internal func getPassedObject<ObjectType>() -> ObjectType? where ObjectType: AnyObject {
+                    return __passedObjects["\\(ObjectType.self)"]?.value as? ObjectType ?? parent?.getPassedObject()
+                }
+                internal func setPassedObject<ObjectType>(_ object: ObjectType?) where ObjectType: AnyObject {
+                    __passedObjects["\\(ObjectType.self)"] = object != nil ? WeakRef(object!) : nil
+                }
+                var coordinator: Coordinator? {
+                    get {
+                        getPassedObject()
+                    }
+                    set {
+                        setPassedObject(newValue)
+                    }
+                }
+                var analytics: AnalyticsService {
+                    injector.analytics
+                }
+            }
+
+            internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
+                var coordinator: Coordinator?
+                var _analytics: AnalyticsService!
+                var analytics: AnalyticsService {
+                    _analytics
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     // build: true — generates *Impl + *Mock + build()
     func testInjectionBuildTrue() {
         assertMacroExpansion(
