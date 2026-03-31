@@ -293,6 +293,7 @@ public enum IOModel {
     static func snapshotDeclSyntax(with classDecl: ClassDeclSyntax) throws -> DeclSyntax {
         let className = classDecl.name.text
         let inputVariables = classDecl.inputVariables
+        let computedVariables = classDecl.computedVariables
         let privacyModifier = classDecl.privacyModifier
 
         let initArgs = inputVariables.map {
@@ -307,6 +308,10 @@ public enum IOModel {
                 } else {
                     "\(raw: privacyModifier) var \(raw: varSyntax.identifier): \(raw: varSyntax.inputProtocolIdentifierType(className: className))"
                 }
+            }
+
+            for varSyntax in computedVariables {
+                "\(raw: privacyModifier) var \(raw: varSyntax.identifier): \(raw: varSyntax.unwrappedIdentifierType)? = nil"
             }
 
             try InitializerDeclSyntax("\(raw: privacyModifier) init(\(raw: initArgs))") {
@@ -331,8 +336,12 @@ public enum IOModel {
 
     private static func snapshotCodingKeysSyntax(with classDecl: ClassDeclSyntax) throws -> EnumDeclSyntax {
         let variables = classDecl.inputVariables
+        let computedVariables = classDecl.computedVariables
         return try EnumDeclSyntax("private enum CodingKeys: CodingKey") {
             for varDecl in variables {
+                "case \(raw: varDecl.identifier)"
+            }
+            for varDecl in computedVariables {
                 "case \(raw: varDecl.identifier)"
             }
         }
@@ -340,6 +349,7 @@ public enum IOModel {
 
     private static func snapshotEncodableSyntax(with classDecl: ClassDeclSyntax) throws -> FunctionDeclSyntax {
         let variables = classDecl.inputVariables
+        let computedVariables = classDecl.computedVariables
 
         return try FunctionDeclSyntax("\(raw: classDecl.privacyModifier) func encode(to encoder: any Encoder) throws") {
             "var container = encoder.container(keyedBy: CodingKeys.self)"
@@ -353,11 +363,15 @@ public enum IOModel {
                     "try container.encode(\(raw: varDecl.identifier), forKey: .\(raw: varDecl.identifier))"
                 }
             }
+            for varDecl in computedVariables {
+                "try container.encodeIfPresent(\(raw: varDecl.identifier), forKey: .\(raw: varDecl.identifier))"
+            }
         }
     }
 
     private static func snapshotDecodableSyntax(with classDecl: ClassDeclSyntax) throws -> InitializerDeclSyntax {
         let variables = classDecl.inputVariables
+        let computedVariables = classDecl.computedVariables
         let className = classDecl.name.text
 
         return try InitializerDeclSyntax("\(raw: classDecl.privacyModifier) init(from decoder: any Decoder) throws") {
@@ -367,10 +381,13 @@ public enum IOModel {
                     let varType = varDecl.inputProtocolIdentifierType(className: className)
                     "self.\(raw: varDecl.identifier) = try values.decodeIfPresent(\(raw: varType).self, forKey: .\(raw: varDecl.identifier)) ?? .ignore"
                 } else if varDecl.isOptional {
-                    "self.\(raw: varDecl.identifier) = try values.decodeIfPresent(\(raw: varDecl.unwrapedIdentifierType).self, forKey: .\(raw: varDecl.identifier))"
+                    "self.\(raw: varDecl.identifier) = try values.decodeIfPresent(\(raw: varDecl.unwrappedIdentifierType).self, forKey: .\(raw: varDecl.identifier))"
                 } else {
                     "self.\(raw: varDecl.identifier) = try values.decode(\(raw: varDecl.rawIdentifierType).self, forKey: .\(raw: varDecl.identifier))"
                 }
+            }
+            for varDecl in computedVariables {
+                "self.\(raw: varDecl.identifier) = try values.decodeIfPresent(\(raw: varDecl.unwrappedIdentifierType).self, forKey: .\(raw: varDecl.identifier))"
             }
         }
     }
@@ -402,9 +419,18 @@ public enum IOModel {
         
         let initArgs = classDecl.inputVariables.map { ignoreInitValue($0) }.joined(separator: ", ")
         let initLinksArgs = classDecl.inputVariables.map { linkInitValue($0) }.joined(separator: ", ")
+        let computedVariables = classDecl.computedVariables
         let funcDecl = try FunctionDeclSyntax("\(raw: classDecl.privacyModifier) func snapshot(includeLinks: Bool = false) -> Snapshot") {
-            "if includeLinks { return Snapshot(\(raw: initLinksArgs)) }"
-            "else { return Snapshot(\(raw: initArgs)) }"
+            if computedVariables.isEmpty {
+                "if includeLinks { return Snapshot(\(raw: initLinksArgs)) }"
+                "else { return Snapshot(\(raw: initArgs)) }"
+            } else {
+                "var result = includeLinks ? Snapshot(\(raw: initLinksArgs)) : Snapshot(\(raw: initArgs))"
+                for varDecl in computedVariables {
+                    "result.\(raw: varDecl.identifier) = \(raw: varDecl.identifier)"
+                }
+                "return result"
+            }
         }
 
         return DeclSyntax(funcDecl)

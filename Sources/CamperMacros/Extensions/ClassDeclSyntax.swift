@@ -22,6 +22,12 @@ extension ClassDeclSyntax {
         }
     }
 
+    var computedVariables: [VariableDeclSyntax] {
+        memberBlock.members.compactMap { $0.decl.as(VariableDeclSyntax.self) }.filter {
+            !$0.isVirtual && !$0.isTransient && $0.hasGetOnlyAccessorBlock
+        }
+    }
+
     var inputWritableVariables: [VariableDeclSyntax] {
         inputVariables.filter { !$0.isUnique }
     }

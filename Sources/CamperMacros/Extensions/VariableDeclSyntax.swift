@@ -20,7 +20,7 @@ extension VariableDeclSyntax {
         return ""
     }
 
-    var unwrapedIdentifierType: String {
+    var unwrappedIdentifierType: String {
         rawIdentifierType.hasSuffix("?") ? String(rawIdentifierType.prefix(rawIdentifierType.count - 1)) : rawIdentifierType
     }
 

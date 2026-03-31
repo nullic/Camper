@@ -826,6 +826,205 @@ final class IOModelMacroTests: XCTestCase {
         )
     }
 
+    func testIOModelWithComputedProperty() {
+        assertMacroExpansion(
+            """
+            @IOModel
+            class Product {
+                var name: String
+                var price: Double { 9.99 }
+            }
+            """,
+            expandedSource: """
+            class Product {
+                var name: String
+                var price: Double { 9.99 }
+
+                internal protocol InputModel: Sendable {
+                    var name: String {
+                        get
+                    }
+                }
+
+                internal init(input: Product.InputModel, context: ModelContext) throws {
+                    self.name = input.name
+                }
+
+                internal func update(input: Product.InputModel) throws {
+                    self.name = input.name
+                }
+
+                internal struct Snapshot: Product.InputModel, Codable, @unchecked Sendable {
+                    internal var name: String
+                    internal var price: Double? = nil
+                    internal init(name: String) {
+                        self.name = name
+                    }
+                    internal init(_ input: Product.InputModel) {
+                        self.name = input.name
+                    }
+                    private enum CodingKeys: CodingKey {
+                        case name
+                        case price
+                    }
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.container(keyedBy: CodingKeys.self)
+                        try container.encode(name, forKey: .name)
+                        try container.encodeIfPresent(price, forKey: .price)
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.container(keyedBy: CodingKeys.self)
+                        self.name = try values.decode(String.self, forKey: .name)
+                        self.price = try values.decodeIfPresent(Double.self, forKey: .price)
+                    }
+                }
+
+                internal func snapshot(includeLinks: Bool = false) -> Snapshot {
+                    var result = includeLinks ? Snapshot(name: name) : Snapshot(name: name)
+                    result.price = price
+                    return result
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testIOModelWithOptionalComputedProperty() {
+        assertMacroExpansion(
+            """
+            @IOModel
+            class Entity {
+                var name: String
+                var organizationId: String? { nil }
+            }
+            """,
+            expandedSource: """
+            class Entity {
+                var name: String
+                var organizationId: String? { nil }
+
+                internal protocol InputModel: Sendable {
+                    var name: String {
+                        get
+                    }
+                }
+
+                internal init(input: Entity.InputModel, context: ModelContext) throws {
+                    self.name = input.name
+                }
+
+                internal func update(input: Entity.InputModel) throws {
+                    self.name = input.name
+                }
+
+                internal struct Snapshot: Entity.InputModel, Codable, @unchecked Sendable {
+                    internal var name: String
+                    internal var organizationId: String? = nil
+                    internal init(name: String) {
+                        self.name = name
+                    }
+                    internal init(_ input: Entity.InputModel) {
+                        self.name = input.name
+                    }
+                    private enum CodingKeys: CodingKey {
+                        case name
+                        case organizationId
+                    }
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.container(keyedBy: CodingKeys.self)
+                        try container.encode(name, forKey: .name)
+                        try container.encodeIfPresent(organizationId, forKey: .organizationId)
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.container(keyedBy: CodingKeys.self)
+                        self.name = try values.decode(String.self, forKey: .name)
+                        self.organizationId = try values.decodeIfPresent(String.self, forKey: .organizationId)
+                    }
+                }
+
+                internal func snapshot(includeLinks: Bool = false) -> Snapshot {
+                    var result = includeLinks ? Snapshot(name: name) : Snapshot(name: name)
+                    result.organizationId = organizationId
+                    return result
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testIOModelWithMultipleComputedProperties() {
+        assertMacroExpansion(
+            """
+            @IOModel
+            class Article {
+                var title: String
+                var wordCount: Int { 42 }
+                var slug: String { title }
+            }
+            """,
+            expandedSource: """
+            class Article {
+                var title: String
+                var wordCount: Int { 42 }
+                var slug: String { title }
+
+                internal protocol InputModel: Sendable {
+                    var title: String {
+                        get
+                    }
+                }
+
+                internal init(input: Article.InputModel, context: ModelContext) throws {
+                    self.title = input.title
+                }
+
+                internal func update(input: Article.InputModel) throws {
+                    self.title = input.title
+                }
+
+                internal struct Snapshot: Article.InputModel, Codable, @unchecked Sendable {
+                    internal var title: String
+                    internal var wordCount: Int? = nil
+                    internal var slug: String? = nil
+                    internal init(title: String) {
+                        self.title = title
+                    }
+                    internal init(_ input: Article.InputModel) {
+                        self.title = input.title
+                    }
+                    private enum CodingKeys: CodingKey {
+                        case title
+                        case wordCount
+                        case slug
+                    }
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.container(keyedBy: CodingKeys.self)
+                        try container.encode(title, forKey: .title)
+                        try container.encodeIfPresent(wordCount, forKey: .wordCount)
+                        try container.encodeIfPresent(slug, forKey: .slug)
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.container(keyedBy: CodingKeys.self)
+                        self.title = try values.decode(String.self, forKey: .title)
+                        self.wordCount = try values.decodeIfPresent(Int.self, forKey: .wordCount)
+                        self.slug = try values.decodeIfPresent(String.self, forKey: .slug)
+                    }
+                }
+
+                internal func snapshot(includeLinks: Bool = false) -> Snapshot {
+                    var result = includeLinks ? Snapshot(title: title) : Snapshot(title: title)
+                    result.wordCount = wordCount
+                    result.slug = slug
+                    return result
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     func testIgnorableAttributeIsNoOp() {
         assertMacroExpansion(
             """

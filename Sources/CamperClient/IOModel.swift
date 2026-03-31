@@ -13,6 +13,8 @@ public final class NonModelModel {
 public final class OtherModel {
     @Attribute(.unique)
     private(set) var uuid: UUID
+    
+    @Virtual
     private(set) var value: UUID?
 
     init(uuid: UUID) { self.uuid = uuid }
