@@ -57,13 +57,34 @@ public enum IOModel {
                             }
                         } else if !varDecl.isRelationship {
                             "result.\(raw: varDecl.identifier) = input.\(raw: varDecl.identifier)"
+                        } else if varDecl.isNonLinkable {
+                            try SwitchExprSyntax("switch input.\(raw: varDecl.identifier)") {
+                                "case .ignore: break"
+                                "case .value(let value): result.\(raw: varDecl.identifier) = value"
+                                if varDecl.isOptional, !varDecl.isArray {
+                                    """
+                                    case .input(let value):
+                                        if let old = result.\(raw: varDecl.identifier) { context.delete(old) }
+                                        result.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).insert(value, in: context)
+                                    """
+                                    """
+                                    case .update(let value):
+                                        if let existing = result.\(raw: varDecl.identifier) { try existing.update(input: value) }
+                                        else { let new = try \(raw: varDecl.elementIdentifierType)(input: value, context: context); context.insert(new); result.\(raw: varDecl.identifier) = new }
+                                    """
+                                } else if varDecl.isArray {
+                                    """
+                                    case .input(let value):
+                                        result.\(raw: varDecl.identifier)\(raw: varDecl.isOptional ? "?" : "").forEach { context.delete($0) }
+                                        result.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).insert(value, in: context)
+                                    """
+                                }
+                            }
                         } else {
                             try SwitchExprSyntax("switch input.\(raw: varDecl.identifier)") {
                                 "case .ignore: break"
                                 "case .value(let value): result.\(raw: varDecl.identifier) = value"
-                                if !varDecl.isNonLinkable {
-                                    "case .link(let value): result.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).unique(value, in: context)"
-                                }
+                                "case .link(let value): result.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).unique(value, in: context)"
                                 "case .input(let value): result.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).insert(value, in: context)"
                             }
                         }
@@ -132,6 +153,9 @@ public enum IOModel {
                 "case ignore"
                 "case value(_ value: \(raw: varDecl.rawIdentifierType))"
                 "case input(_ value: \(raw: varDecl.inputModelIdentifierType))"
+                if varDecl.isNonLinkable, !varDecl.isArray {
+                    "case update(_ value: \(raw: varDecl.inputModelIdentifierType))"
+                }
                 if !varDecl.isNonLinkable {
                     "case link(_ value: \(raw: varDecl.linkIdentifierType))"
                 }
@@ -148,6 +172,9 @@ public enum IOModel {
                             "case .value(let value): try container.encode(value\(raw: varDecl.isOptional ? "?" : "").map { $0.snapshot() })"
                         } else {
                             "case .input(let value): try container.encode(\(raw: varDecl.elementIdentifierType).Snapshot(value))"
+                            if varDecl.isNonLinkable {
+                                "case .update(let value): try container.encode(\(raw: varDecl.elementIdentifierType).Snapshot(value))"
+                            }
                             "case .value(let value): try container.encode(value\(raw: varDecl.isOptional ? "?" : "").snapshot())"
                         }
                     }
@@ -249,6 +276,9 @@ public enum IOModel {
                             "case .link(let value): self.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).unique(value, in: context)"
                         }
                         "case .input(let value): self.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).insert(value, in: context)"
+                        if varDecl.isNonLinkable, !varDecl.isArray {
+                            "case .update(let value): self.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).insert(value, in: context)"
+                        }
                     }
                 }
             }
@@ -273,13 +303,34 @@ public enum IOModel {
                     }
                 } else if !varDecl.isRelationship {
                     "self.\(raw: varDecl.identifier) = input.\(raw: varDecl.identifier)"
+                } else if varDecl.isNonLinkable {
+                    try SwitchExprSyntax("switch input.\(raw: varDecl.identifier)") {
+                        "case .ignore: break"
+                        "case .value(let value): self.\(raw: varDecl.identifier) = value"
+                        if varDecl.isOptional, !varDecl.isArray {
+                            """
+                            case .input(let value):
+                                if let old = self.\(raw: varDecl.identifier) { context.delete(old) }
+                                self.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).insert(value, in: context)
+                            """
+                            """
+                            case .update(let value):
+                                if let existing = self.\(raw: varDecl.identifier) { try existing.update(input: value) }
+                                else { let new = try \(raw: varDecl.elementIdentifierType)(input: value, context: context); context.insert(new); self.\(raw: varDecl.identifier) = new }
+                            """
+                        } else if varDecl.isArray {
+                            """
+                            case .input(let value):
+                                self.\(raw: varDecl.identifier)\(raw: varDecl.isOptional ? "?" : "").forEach { context.delete($0) }
+                                self.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).insert(value, in: context)
+                            """
+                        }
+                    }
                 } else {
                     try SwitchExprSyntax("switch input.\(raw: varDecl.identifier)") {
                         "case .ignore: break"
                         "case .value(let value): self.\(raw: varDecl.identifier) = value"
-                        if !varDecl.isNonLinkable {
-                            "case .link(let value): self.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).unique(value, in: context)"
-                        }
+                        "case .link(let value): self.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).unique(value, in: context)"
                         "case .input(let value): self.\(raw: varDecl.identifier) = try \(raw: varDecl.elementIdentifierType).insert(value, in: context)"
                     }
                 }

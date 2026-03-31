@@ -1038,6 +1038,258 @@ final class IOModelMacroTests: XCTestCase {
         )
     }
 
+    func testIOModelWithNonLinkableOptionalRelationship() {
+        assertMacroExpansion(
+            """
+            @IOModel
+            class Article {
+                var title: String
+                @NonLinkable @Relationship var detail: Detail?
+            }
+            """,
+            expandedSource: """
+            class Article {
+                var title: String
+                @Relationship var detail: Detail?
+
+                internal enum DetailInput: Codable {
+                    case ignore
+                    case value(_ value: Detail?)
+                    case input(_ value: Detail.InputModel)
+                    case update(_ value: Detail.InputModel)
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.singleValueContainer()
+                        switch self {
+                        case .ignore:
+                            break
+                        case .input(let value):
+                            try container.encode(Detail.Snapshot(value))
+                        case .update(let value):
+                            try container.encode(Detail.Snapshot(value))
+                        case .value(let value):
+                            try container.encode(value?.snapshot())
+                        }
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.singleValueContainer()
+                        do {
+                            let value = try values.decode(Detail.Snapshot.self)
+                            self = .input(value)
+                        }
+                    }
+                }
+
+                internal protocol InputModel: Sendable {
+                    var title: String {
+                        get
+                    }
+                    var detail: Article.DetailInput {
+                        get
+                    }
+                }
+
+                internal init(input: Article.InputModel, context: ModelContext) throws {
+                    self.title = input.title
+                    switch input.detail {
+                    case .ignore:
+                        break
+                    case .value(let value):
+                        self.detail = value
+                    case .input(let value):
+                        self.detail = try Detail.insert(value, in: context)
+                    case .update(let value):
+                        self.detail = try Detail.insert(value, in: context)
+                    }
+                }
+
+                internal func update(input: Article.InputModel) throws {
+                    self.title = input.title
+                    switch input.detail {
+                    case .ignore:
+                        break
+                    case .value(let value):
+                        self.detail = value
+                    case .input(let value):
+                        if let old = self.detail {
+                            context.delete(old)
+                        }
+                        self.detail = try Detail.insert(value, in: context)
+                    case .update(let value):
+                        if let existing = self.detail {
+                            try existing.update(input: value)
+                        }
+                        else {
+                            let new = try Detail(input: value, context: context);
+                            context.insert(new);
+                            self.detail = new
+                        }
+                    }
+                }
+
+                internal struct Snapshot: Article.InputModel, Codable, @unchecked Sendable {
+                    internal var title: String
+                    internal var detail: Article.DetailInput = .ignore
+                    internal init(title: String, detail: Article.DetailInput = .ignore) {
+                        self.title = title
+                        self.detail = detail
+                    }
+                    internal init(_ input: Article.InputModel) {
+                        self.title = input.title
+                        self.detail = input.detail
+                    }
+                    private enum CodingKeys: CodingKey {
+                        case title
+                        case detail
+                    }
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.container(keyedBy: CodingKeys.self)
+                        try container.encode(title, forKey: .title)
+                        switch detail {
+                        case .ignore:
+                            break
+                        default:
+                            try container.encode(detail, forKey: .detail)
+                        }
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.container(keyedBy: CodingKeys.self)
+                        self.title = try values.decode(String.self, forKey: .title)
+                        self.detail = try values.decodeIfPresent(Article.DetailInput.self, forKey: .detail) ?? .ignore
+                    }
+                }
+
+                internal func snapshot(includeLinks: Bool = false) -> Snapshot {
+                    if includeLinks {
+                        return Snapshot(title: title, detail: .ignore)
+                    }else { return Snapshot(title: title, detail: .ignore) }
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testIOModelWithNonLinkableArrayRelationship() {
+        assertMacroExpansion(
+            """
+            @IOModel
+            class Article {
+                var title: String
+                @NonLinkable @Relationship var tags: [Tag]
+            }
+            """,
+            expandedSource: """
+            class Article {
+                var title: String
+                @Relationship var tags: [Tag]
+
+                internal enum TagsInput: Codable {
+                    case ignore
+                    case value(_ value: [Tag])
+                    case input(_ value: [Tag.InputModel])
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.singleValueContainer()
+                        switch self {
+                        case .ignore:
+                            break
+                        case .input(let value):
+                            try container.encode(value.map {
+                                    Tag.Snapshot($0)
+                                })
+                        case .value(let value):
+                            try container.encode(value.map {
+                                    $0.snapshot()
+                                })
+                        }
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.singleValueContainer()
+                        do {
+                            let value = try values.decode([Tag.Snapshot].self)
+                            self = .input(value)
+                        }
+                    }
+                }
+
+                internal protocol InputModel: Sendable {
+                    var title: String {
+                        get
+                    }
+                    var tags: Article.TagsInput {
+                        get
+                    }
+                }
+
+                internal init(input: Article.InputModel, context: ModelContext) throws {
+                    self.title = input.title
+                    switch input.tags {
+                    case .ignore:
+                        break
+                    case .value(let value):
+                        self.tags = value
+                    case .input(let value):
+                        self.tags = try Tag.insert(value, in: context)
+                    }
+                }
+
+                internal func update(input: Article.InputModel) throws {
+                    self.title = input.title
+                    switch input.tags {
+                    case .ignore:
+                        break
+                    case .value(let value):
+                        self.tags = value
+                    case .input(let value):
+                        self.tags.forEach {
+                            context.delete($0)
+                        }
+                        self.tags = try Tag.insert(value, in: context)
+                    }
+                }
+
+                internal struct Snapshot: Article.InputModel, Codable, @unchecked Sendable {
+                    internal var title: String
+                    internal var tags: Article.TagsInput = .ignore
+                    internal init(title: String, tags: Article.TagsInput = .ignore) {
+                        self.title = title
+                        self.tags = tags
+                    }
+                    internal init(_ input: Article.InputModel) {
+                        self.title = input.title
+                        self.tags = input.tags
+                    }
+                    private enum CodingKeys: CodingKey {
+                        case title
+                        case tags
+                    }
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.container(keyedBy: CodingKeys.self)
+                        try container.encode(title, forKey: .title)
+                        switch tags {
+                        case .ignore:
+                            break
+                        default:
+                            try container.encode(tags, forKey: .tags)
+                        }
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.container(keyedBy: CodingKeys.self)
+                        self.title = try values.decode(String.self, forKey: .title)
+                        self.tags = try values.decodeIfPresent(Article.TagsInput.self, forKey: .tags) ?? .ignore
+                    }
+                }
+
+                internal func snapshot(includeLinks: Bool = false) -> Snapshot {
+                    if includeLinks {
+                        return Snapshot(title: title, tags: .ignore)
+                    }else { return Snapshot(title: title, tags: .ignore) }
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     func testNonLinkableAttributeIsNoOp() {
         assertMacroExpansion(
             """
