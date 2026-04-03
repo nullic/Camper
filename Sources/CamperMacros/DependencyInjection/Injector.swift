@@ -14,20 +14,42 @@ extension Injector: PeerMacro {
         var result: [SwiftSyntax.DeclSyntax] = []
         let className = classDecl.name.text
 
-        if classDecl.attributes.injectorArguments?.boolValue(label: "mock") == true {
+        if classDecl.attributes.injectorArguments?.boolValue(label: "mock") != false {
             let regularDeps = classDecl.allVariables.filter { $0.isDependency && !$0.isExplicitDependency }
             let explicitDeps = classDecl.allVariables.filter { $0.isExplicitDependency }
-            // Only generate static mock when there are no explicit deps (values are unknown)
-            if explicitDeps.isEmpty {
-                let mock = try EnumDeclSyntax("\(raw: classDecl.privacyModifier) enum \(raw: className)Mock") {
-                    if regularDeps.isEmpty {
-                        "\(raw: classDecl.privacyModifier) static nonisolated(unsafe) let mock: \(raw: className) = \(raw: className)()"
-                    } else {
-                        "\(raw: classDecl.privacyModifier) static nonisolated(unsafe) let mock: \(raw: className) = \(raw: className)(dependencies: \(raw: className).DependenciesMock())"
-                    }
+
+            let mockFuncDecl: DeclSyntax
+            let explicitArgs = explicitDeps.compactMap { v -> String? in
+                let t = v.rawIdentifierType
+                guard !t.isEmpty else { return nil }
+                let mockType = t + "Mock"
+                return "\(v.identifier): \(mockType).mock()"
+            }.joined(separator: ", ")
+
+            if regularDeps.isEmpty && explicitDeps.isEmpty {
+                mockFuncDecl = DeclSyntax("\(raw: classDecl.privacyModifier) static func mock() -> \(raw: className) { \(raw: className)() }")
+            } else if regularDeps.isEmpty {
+                mockFuncDecl = DeclSyntax("\(raw: classDecl.privacyModifier) static func mock() -> \(raw: className) { \(raw: className)(\(raw: explicitArgs)) }")
+            } else if explicitDeps.isEmpty {
+                let fn = try FunctionDeclSyntax("\(raw: classDecl.privacyModifier) static func mock(configure: (\(raw: className).DependenciesMock) -> Void = { _ in }) -> \(raw: className)") {
+                    "let deps = \(raw: className).DependenciesMock()"
+                    "configure(deps)"
+                    "return \(raw: className)(dependencies: deps)"
                 }
-                result.append(DeclSyntax(mock))
+                mockFuncDecl = DeclSyntax(fn)
+            } else {
+                let fn = try FunctionDeclSyntax("\(raw: classDecl.privacyModifier) static func mock(configure: (\(raw: className).DependenciesMock) -> Void = { _ in }) -> \(raw: className)") {
+                    "let deps = \(raw: className).DependenciesMock()"
+                    "configure(deps)"
+                    "return \(raw: className)(dependencies: deps, \(raw: explicitArgs))"
+                }
+                mockFuncDecl = DeclSyntax(fn)
             }
+
+            let mock = try EnumDeclSyntax("\(raw: classDecl.privacyModifier) enum \(raw: className)Mock") {
+                mockFuncDecl
+            }
+            result.append(DeclSyntax(mock))
         }
 
         result.append(DeclSyntax(stringLiteral: "typealias DefaultInjector = \(className)"))
@@ -175,30 +197,55 @@ extension Injector: ExtensionMacro {
     {
         guard let classDecl = declaration.as(ClassDeclSyntax.self) else { throw CamperMacrosError.ioModelIncorrectType }
         guard
-            classDecl.attributes.injectorArguments?.boolValue(label: "dependenciesMock") == true ||
-            classDecl.attributes.injectorArguments?.boolValue(label: "mock") == true
+            classDecl.attributes.injectorArguments?.boolValue(label: "dependenciesMock") != false ||
+            classDecl.attributes.injectorArguments?.boolValue(label: "mock") != false
         else { return [] }
 
         let className = type.trimmed
+        let privacyModifier = classDecl.privacyModifier
         let regularDeps = classDecl.allVariables.filter { $0.isDependency && !$0.isExplicitDependency }
-        guard !regularDeps.isEmpty else { return [] }
+        let addMock = classDecl.attributes.injectorArguments?.boolValue(label: "mock") != false
 
-        return try [
-            ExtensionDeclSyntax("extension \(raw: className)") {
-                if classDecl.attributes.injectorArguments?.boolValue(label: "mock") == true {
-                    "static var mock: \(raw: className) { \(raw: className)Mock.mock }"
+        var members: [DeclSyntax] = []
+
+        if addMock {
+            if regularDeps.isEmpty {
+                let mockFunc = try FunctionDeclSyntax(
+                    "\(raw: privacyModifier) static func mock() -> \(raw: className)"
+                ) {
+                    "\(raw: className)Mock.mock()"
                 }
+                members.append(DeclSyntax(mockFunc))
+            } else {
+                let mockFunc = try FunctionDeclSyntax(
+                    "\(raw: privacyModifier) static func mock(configure: (DependenciesMock) -> Void = { _ in }) -> \(raw: className)"
+                ) {
+                    "\(raw: className)Mock.mock(configure: configure)"
+                }
+                members.append(DeclSyntax(mockFunc))
+            }
+        }
 
-                try ClassDeclSyntax("final class DependenciesMock: \(raw: className).Dependencies") {
-                    for variable in regularDeps {
-                        let typeString = variable.rawIdentifierType
-                        if !typeString.isEmpty {
-                            let mockType = typeString.replacingOccurrences(of: "<", with: "").replacingOccurrences(of: ">", with: "")
-                            "var \(raw: variable.identifier): \(raw: typeString) = \(raw: mockType)Mock.mock"
-                        }
+        if !regularDeps.isEmpty {
+            let depsMock = try ClassDeclSyntax("\(raw: privacyModifier) final class DependenciesMock: \(raw: className).Dependencies") {
+                for variable in regularDeps {
+                    let typeString = variable.rawIdentifierType
+                    if !typeString.isEmpty {
+                        let mockType = typeString.replacingOccurrences(of: "<", with: "").replacingOccurrences(of: ">", with: "")
+                        "\(raw: privacyModifier) var \(raw: variable.identifier): \(raw: typeString) = \(raw: mockType)Mock.mock()"
                     }
                 }
-            },
+            }
+            members.append(DeclSyntax(depsMock))
+        }
+
+        guard !members.isEmpty else { return [] }
+
+        return [
+            ExtensionDeclSyntax(
+                extendedType: TypeSyntax("\(raw: className)"),
+                memberBlock: MemberBlockSyntax(members: MemberBlockItemListSyntax(members.map { MemberBlockItemSyntax(decl: $0) }))
+            )
         ]
     }
 }

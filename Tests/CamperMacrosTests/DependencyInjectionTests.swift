@@ -174,9 +174,12 @@ final class InjectionMacroTests: XCTestCase {
             }
 
             internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
-                var _analytics: AnalyticsService!
+                internal let injector: DefaultInjector
+                internal init(injector: DefaultInjector = DefaultInjector.mock()) {
+                    self.injector = injector
+                }
                 var analytics: AnalyticsService {
-                    _analytics
+                    injector.analytics
                 }
             }
             """,
@@ -260,8 +263,12 @@ final class InjectionMacroTests: XCTestCase {
             }
 
             internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
+                internal let injector: DefaultInjector
+                internal init(injector: DefaultInjector = DefaultInjector.mock()) {
+                    self.injector = injector
+                }
                 var settings: SettingsInjection {
-                    SettingsInjectionMock()
+                    SettingsInjectionMock(injector: injector)
                 }
             }
             """,
@@ -280,7 +287,7 @@ final class InjectionMacroTests: XCTestCase {
             """,
             expandedSource: """
             protocol HomeInjection {
-                @Origin("analytics.tracker") var tracker: Tracker { get }
+                var tracker: Tracker { get }
                 var api: APIService { get }
             }
 
@@ -356,9 +363,8 @@ final class InjectionMacroTests: XCTestCase {
             }
 
             internal class DetailInjectionMock: HomeInjectionMock, DetailInjection {
-                var _detail: DetailService!
                 var detail: DetailService {
-                    _detail
+                    injector.detail
                 }
             }
             """,
@@ -366,10 +372,11 @@ final class InjectionMacroTests: XCTestCase {
         )
     }
 
-    func testInjectionWithInjectorMock() {
+    // Mock always uses injector — tests that injector:DefaultInjector.mock() is the default
+    func testInjectionMockWithAllVariants() {
         assertMacroExpansion(
             """
-            @Injection(injectorMock: true)
+            @Injection
             protocol HomeInjection {
                 var analytics: AnalyticsService { get }
                 var settings: SettingsInjection { get }
@@ -418,7 +425,7 @@ final class InjectionMacroTests: XCTestCase {
 
             internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
                 internal let injector: DefaultInjector
-                internal init(injector: DefaultInjector = DefaultInjector.mock) {
+                internal init(injector: DefaultInjector = DefaultInjector.mock()) {
                     self.injector = injector
                 }
                 var analytics: AnalyticsService {
@@ -434,10 +441,10 @@ final class InjectionMacroTests: XCTestCase {
         )
     }
 
-    func testInjectionWithInjectorMockCustomInjectorType() {
+    func testInjectionWithCustomInjectorType() {
         assertMacroExpansion(
             """
-            @Injection(injectorType: ModuleInjector.self, injectorMock: true)
+            @Injection(injectorType: ModuleInjector.self)
             protocol HomeInjection {
                 var analytics: AnalyticsService { get }
             }
@@ -471,7 +478,7 @@ final class InjectionMacroTests: XCTestCase {
 
             internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
                 internal let injector: ModuleInjector
-                internal init(injector: ModuleInjector = ModuleInjector.mock) {
+                internal init(injector: ModuleInjector = ModuleInjector.mock()) {
                     self.injector = injector
                 }
                 var analytics: AnalyticsService {
@@ -483,10 +490,10 @@ final class InjectionMacroTests: XCTestCase {
         )
     }
 
-    func testInjectionInheritanceWithInjectorMock() {
+    func testInjectionInheritanceWithMockUsesInjector() {
         assertMacroExpansion(
             """
-            @Injection(injectorMock: true)
+            @Injection
             protocol DetailInjection: HomeInjection {
                 var detail: DetailService { get }
             }
@@ -579,10 +586,13 @@ final class InjectionMacroTests: XCTestCase {
             }
 
             internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
+                internal let injector: DefaultInjector
+                internal init(injector: DefaultInjector = DefaultInjector.mock()) {
+                    self.injector = injector
+                }
                 var coordinator: Coordinator?
-                var _analytics: AnalyticsService!
                 var analytics: AnalyticsService {
-                    _analytics
+                    injector.analytics
                 }
             }
             """,
@@ -627,14 +637,212 @@ final class InjectionMacroTests: XCTestCase {
             }
 
             internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
-                var _analytics: AnalyticsService!
+                internal let injector: DefaultInjector
+                internal init(injector: DefaultInjector = DefaultInjector.mock()) {
+                    self.injector = injector
+                }
                 var analytics: AnalyticsService {
-                    _analytics
+                    injector.analytics
                 }
             }
 
             func build(injector: DefaultInjector) -> HomeInjection {
                 HomeInjectionImpl(injector: injector)
+            }
+            """,
+            macros: testMacros
+        )
+    }
+}
+
+final class InjectorMacroTests: XCTestCase {
+    let testMacros: [String: Macro.Type] = [
+        "Injector": Injector.self,
+        "Dependency": Dependency.self,
+        "Output": Output.self,
+    ]
+
+    func testInjectorMockWithDependencies() {
+        assertMacroExpansion(
+            """
+            @Injector(mock: true, dependenciesMock: true)
+            final class AppInjector {
+                @Dependency var api: APIService
+                @Output var router: Router = Router()
+            }
+            """,
+            expandedSource: """
+            final class AppInjector {
+                var api: APIService {
+                    get {
+                        dependencies.api
+                    }
+                }
+                var router: Router = Router()
+
+                internal protocol Outputs {
+                    var router: Router {
+                        get
+                    }
+                    func getValue() -> Router
+                }
+
+                internal protocol Dependencies {
+                    var api: APIService {
+                        get
+                    }
+                }
+
+                private let dependencies: Dependencies
+
+                internal init(dependencies: Dependencies) {
+                    self.dependencies = dependencies
+                }
+
+                internal func getValue() -> APIService {
+                    api
+                }
+
+                internal func getValue() -> Router {
+                    router
+                }
+            }
+
+            internal enum AppInjectorMock {
+                internal static func mock(configure: (AppInjector.DependenciesMock) -> Void = { _ in
+                    }) -> AppInjector {
+                    let deps = AppInjector.DependenciesMock()
+                    configure(deps)
+                    return AppInjector(dependencies: deps)
+                }
+            }
+
+            typealias DefaultInjector = AppInjector
+
+            extension AppInjector {
+                internal static func mock(configure: (DependenciesMock) -> Void = { _ in
+                    }) -> AppInjector {
+                    AppInjectorMock.mock(configure: configure)
+                }
+                internal final class DependenciesMock: AppInjector.Dependencies {
+                    internal var api: APIService = APIServiceMock.mock()
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testInjectorMockWithDefaultParameters() {
+        assertMacroExpansion(
+            """
+            @Injector
+            final class AppInjector {
+                @Dependency var api: APIService
+                @Output var router: Router = Router()
+            }
+            """,
+            expandedSource: """
+            final class AppInjector {
+                var api: APIService {
+                    get {
+                        dependencies.api
+                    }
+                }
+                var router: Router = Router()
+
+                internal protocol Outputs {
+                    var router: Router {
+                        get
+                    }
+                    func getValue() -> Router
+                }
+
+                internal protocol Dependencies {
+                    var api: APIService {
+                        get
+                    }
+                }
+
+                private let dependencies: Dependencies
+
+                internal init(dependencies: Dependencies) {
+                    self.dependencies = dependencies
+                }
+
+                internal func getValue() -> APIService {
+                    api
+                }
+
+                internal func getValue() -> Router {
+                    router
+                }
+            }
+
+            internal enum AppInjectorMock {
+                internal static func mock(configure: (AppInjector.DependenciesMock) -> Void = { _ in
+                    }) -> AppInjector {
+                    let deps = AppInjector.DependenciesMock()
+                    configure(deps)
+                    return AppInjector(dependencies: deps)
+                }
+            }
+
+            typealias DefaultInjector = AppInjector
+
+            extension AppInjector {
+                internal static func mock(configure: (DependenciesMock) -> Void = { _ in
+                    }) -> AppInjector {
+                    AppInjectorMock.mock(configure: configure)
+                }
+                internal final class DependenciesMock: AppInjector.Dependencies {
+                    internal var api: APIService = APIServiceMock.mock()
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testInjectorMockWithoutDependencies() {
+        assertMacroExpansion(
+            """
+            @Injector(mock: true)
+            final class AppInjector {
+                @Output var router: Router = Router()
+            }
+            """,
+            expandedSource: """
+            final class AppInjector {
+                var router: Router = Router()
+
+                internal protocol Outputs {
+                    var router: Router {
+                        get
+                    }
+                    func getValue() -> Router
+                }
+
+                internal init() {
+                }
+
+                internal func getValue() -> Router {
+                    router
+                }
+            }
+
+            internal enum AppInjectorMock {
+                internal static func mock() -> AppInjector {
+                    AppInjector()
+                }
+            }
+
+            typealias DefaultInjector = AppInjector
+
+            extension AppInjector {
+                internal static func mock() -> AppInjector {
+                    AppInjectorMock.mock()
+                }
             }
             """,
             macros: testMacros

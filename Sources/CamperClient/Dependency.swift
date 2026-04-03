@@ -8,7 +8,7 @@ enum SomeDependencyMock {
 
 class SomeDependency2 {}
 
-@Injector(mock: true, dependenciesMock: true)
+@Injector
 @dynamicMemberLookup
 final class ModuleInjector {
     @Dependency(.subscript) var someDependency: SomeDependency // = SomeDependency()
@@ -30,11 +30,33 @@ protocol ViewModel2Injection {
 final class ModuleInjectorDependenciesImpl: ModuleInjector.Dependencies {
     let someDependency: SomeDependency = SomeDependency()
 }
-
+    
 func checkDependency() {
     let module = ModuleInjector(dependencies: ModuleInjectorDependenciesImpl())
     _ = ViewModelInjectionImpl(injector: module)
     _ = ViewModel2InjectionMock()
+}
+
+// MARK: - Usage examples
+
+func usageExamples() {
+    // Basic mock — all dependencies use their default mocks
+    let defaultMock = ModuleInjector.mock()
+
+    // Configured mock — override a specific dependency
+    let customMock = ModuleInjector.mock { deps in
+        deps.someDependency = SomeDependency()
+    }
+
+    // ViewModelInjectionMock auto-resolves from DefaultInjector.mock()
+    let viewModelMock = ViewModelInjectionMock()
+
+    // ViewModelInjectionMock with a custom injector
+    let viewModelMockWithCustomInjector = ViewModelInjectionMock(injector: customMock)
+
+    _ = defaultMock
+    _ = viewModelMock
+    _ = viewModelMockWithCustomInjector
 }
 
 @MainActor
