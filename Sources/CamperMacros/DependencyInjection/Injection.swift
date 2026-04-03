@@ -17,6 +17,7 @@ extension Injection: PeerMacro {
         let injectorType = protocolDecl.attributes.injectorType ?? "DefaultInjector"
         let addMock = protocolDecl.attributes.injectionArguments?.boolValue(label: "mock") ?? true
         let addBuild = protocolDecl.attributes.injectionArguments?.boolValue(label: "build") ?? false
+        let addInjectorMock = protocolDecl.attributes.injectionArguments?.boolValue(label: "injectorMock") ?? false
 
         let name = protocolDecl.name.trimmed.text
         let implName = name + "Impl"
@@ -50,18 +51,36 @@ extension Injection: PeerMacro {
 
         if addMock {
             if let parentInjection {
-                result.append(makeInheritedMockDecl(
-                    name: name, mockName: mockName,
-                    privacyModifier: privacyModifier,
-                    parentInjection: parentInjection,
-                    variables: protocolDecl.allVariables
-                ))
+                if addInjectorMock {
+                    result.append(makeInheritedInjectorMockDecl(
+                        name: name, mockName: mockName,
+                        privacyModifier: privacyModifier,
+                        parentInjection: parentInjection,
+                        variables: protocolDecl.allVariables
+                    ))
+                } else {
+                    result.append(makeInheritedMockDecl(
+                        name: name, mockName: mockName,
+                        privacyModifier: privacyModifier,
+                        parentInjection: parentInjection,
+                        variables: protocolDecl.allVariables
+                    ))
+                }
             } else {
-                result.append(try makeRootMockDecl(
-                    name: name, mockName: mockName,
-                    privacyModifier: privacyModifier,
-                    variables: protocolDecl.allVariables
-                ))
+                if addInjectorMock {
+                    result.append(try makeRootInjectorMockDecl(
+                        name: name, mockName: mockName,
+                        injectorType: injectorType,
+                        privacyModifier: privacyModifier,
+                        variables: protocolDecl.allVariables
+                    ))
+                } else {
+                    result.append(try makeRootMockDecl(
+                        name: name, mockName: mockName,
+                        privacyModifier: privacyModifier,
+                        variables: protocolDecl.allVariables
+                    ))
+                }
             }
         }
 
@@ -182,6 +201,69 @@ private extension Injection {
             }
         }
         return DeclSyntax(mockDecl)
+    }
+}
+
+// MARK: - Root *InjectorMock
+
+private extension Injection {
+    static func makeRootInjectorMockDecl(
+        name: String,
+        mockName: String,
+        injectorType: String,
+        privacyModifier: String,
+        variables: [VariableDeclSyntax]
+    ) throws -> DeclSyntax {
+        let mockDecl = try ClassDeclSyntax(
+            "\(raw: privacyModifier) final class \(raw: mockName): \(raw: name), @unchecked Sendable"
+        ) {
+            "\(raw: privacyModifier) let injector: \(raw: injectorType)"
+
+            try InitializerDeclSyntax(
+                "\(raw: privacyModifier) init(injector: \(raw: injectorType) = \(raw: injectorType).mock)"
+            ) {
+                "self.injector = injector"
+            }
+
+            for variable in variables {
+                if let origin = variable.originPath {
+                    "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { injector.\(raw: origin) }"
+                } else if variable.rawIdentifierType.hasSuffix("Injection") {
+                    "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { \(raw: variable.rawIdentifierType)Mock(injector: injector) }"
+                } else if variable.isPassed || variable.hasSetter {
+                    "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType)"
+                } else {
+                    "var \(raw: variable.identifier): \(raw: variable.rawIdentifierType) { injector.\(raw: variable.identifier) }"
+                }
+            }
+        }
+        return DeclSyntax(mockDecl)
+    }
+}
+
+// MARK: - Inherited *InjectorMock
+
+private extension Injection {
+    static func makeInheritedInjectorMockDecl(
+        name: String,
+        mockName: String,
+        privacyModifier: String,
+        parentInjection: String,
+        variables: [VariableDeclSyntax]
+    ) -> DeclSyntax {
+        let parentMockName = "\(parentInjection)Mock"
+        let lines = variables.map { injectorMockLine($0) }
+        let body = lines.isEmpty ? "" : "\n" + lines.joined(separator: "\n") + "\n"
+        return DeclSyntax(stringLiteral: "\(privacyModifier) class \(mockName): \(parentMockName), \(name) {\(body)}")
+    }
+
+    static func injectorMockLine(_ variable: VariableDeclSyntax) -> String {
+        let n = variable.identifier
+        let t = variable.rawIdentifierType
+        if let origin = variable.originPath { return "    var \(n): \(t) { injector.\(origin) }" }
+        if t.hasSuffix("Injection") { return "    var \(n): \(t) { \(t)Mock(injector: injector) }" }
+        if variable.isPassed || variable.hasSetter { return "    var \(n): \(t)" }
+        return "    var \(n): \(t) { injector.\(n) }"
     }
 }
 

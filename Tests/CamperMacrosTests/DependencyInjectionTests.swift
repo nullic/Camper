@@ -366,6 +366,152 @@ final class InjectionMacroTests: XCTestCase {
         )
     }
 
+    func testInjectionWithInjectorMock() {
+        assertMacroExpansion(
+            """
+            @Injection(injectorMock: true)
+            protocol HomeInjection {
+                var analytics: AnalyticsService { get }
+                var settings: SettingsInjection { get }
+                var coordinator: Coordinator? { get set }
+            }
+            """,
+            expandedSource: """
+            protocol HomeInjection {
+                var analytics: AnalyticsService { get }
+                var settings: SettingsInjection { get }
+                var coordinator: Coordinator? { get set }
+            }
+
+            internal final class HomeInjectionImpl: HomeInjection, PassedObjectsInjection, CustomStringConvertible, @unchecked Sendable {
+                private var __passedObjects: [String: WeakRef] = [:]
+                private weak var parent: PassedObjectsInjection?
+                private let injector: DefaultInjector
+                internal var description: String {
+                    "\\(type(of: self)) -> \\(parent != nil ? String(describing: parent!) : "nil")"
+                }
+                internal init(injector: DefaultInjector, parent: PassedObjectsInjection? = nil) {
+                    self.injector = injector
+                    self.parent = parent
+                }
+                internal func getPassedObject<ObjectType>() -> ObjectType? where ObjectType: AnyObject {
+                    return __passedObjects["\\(ObjectType.self)"]?.value as? ObjectType ?? parent?.getPassedObject()
+                }
+                internal func setPassedObject<ObjectType>(_ object: ObjectType?) where ObjectType: AnyObject {
+                    __passedObjects["\\(ObjectType.self)"] = object != nil ? WeakRef(object!) : nil
+                }
+                var analytics: AnalyticsService {
+                    injector.analytics
+                }
+                var settings: SettingsInjection {
+                    SettingsInjectionImpl(injector: injector, parent: self)
+                }
+                var coordinator: Coordinator? {
+                    get {
+                        getPassedObject()
+                    }
+                    set {
+                        setPassedObject(newValue)
+                    }
+                }
+            }
+
+            internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
+                internal let injector: DefaultInjector
+                internal init(injector: DefaultInjector = DefaultInjector.mock) {
+                    self.injector = injector
+                }
+                var analytics: AnalyticsService {
+                    injector.analytics
+                }
+                var settings: SettingsInjection {
+                    SettingsInjectionMock(injector: injector)
+                }
+                var coordinator: Coordinator?
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testInjectionWithInjectorMockCustomInjectorType() {
+        assertMacroExpansion(
+            """
+            @Injection(injectorType: ModuleInjector.self, injectorMock: true)
+            protocol HomeInjection {
+                var analytics: AnalyticsService { get }
+            }
+            """,
+            expandedSource: """
+            protocol HomeInjection {
+                var analytics: AnalyticsService { get }
+            }
+
+            internal final class HomeInjectionImpl: HomeInjection, PassedObjectsInjection, CustomStringConvertible, @unchecked Sendable {
+                private var __passedObjects: [String: WeakRef] = [:]
+                private weak var parent: PassedObjectsInjection?
+                private let injector: ModuleInjector
+                internal var description: String {
+                    "\\(type(of: self)) -> \\(parent != nil ? String(describing: parent!) : "nil")"
+                }
+                internal init(injector: ModuleInjector, parent: PassedObjectsInjection? = nil) {
+                    self.injector = injector
+                    self.parent = parent
+                }
+                internal func getPassedObject<ObjectType>() -> ObjectType? where ObjectType: AnyObject {
+                    return __passedObjects["\\(ObjectType.self)"]?.value as? ObjectType ?? parent?.getPassedObject()
+                }
+                internal func setPassedObject<ObjectType>(_ object: ObjectType?) where ObjectType: AnyObject {
+                    __passedObjects["\\(ObjectType.self)"] = object != nil ? WeakRef(object!) : nil
+                }
+                var analytics: AnalyticsService {
+                    injector.analytics
+                }
+            }
+
+            internal final class HomeInjectionMock: HomeInjection, @unchecked Sendable {
+                internal let injector: ModuleInjector
+                internal init(injector: ModuleInjector = ModuleInjector.mock) {
+                    self.injector = injector
+                }
+                var analytics: AnalyticsService {
+                    injector.analytics
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testInjectionInheritanceWithInjectorMock() {
+        assertMacroExpansion(
+            """
+            @Injection(injectorMock: true)
+            protocol DetailInjection: HomeInjection {
+                var detail: DetailService { get }
+            }
+            """,
+            expandedSource: """
+            protocol DetailInjection: HomeInjection {
+                var detail: DetailService { get }
+            }
+
+            internal class DetailInjectionImpl: HomeInjectionImpl, DetailInjection {
+                var detail: DetailService {
+                    injector.detail
+                }
+            }
+
+            internal class DetailInjectionMock: HomeInjectionMock, DetailInjection {
+                var detail: DetailService {
+                    injector.detail
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     func testInjectionIncorrectName() {
         assertMacroExpansion(
             """

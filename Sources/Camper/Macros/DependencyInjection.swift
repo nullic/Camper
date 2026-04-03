@@ -14,7 +14,7 @@
 ///         @Origin("settings.endpoint") var endpoint: String { get }
 ///     }
 @attached(peer, names: suffixed(Impl), suffixed(Mock), named(build(injector:)))
-public macro Injection(mock: Bool = true, build: Bool = false, injectorType: Any.Type? = nil) = #externalMacro(module: "CamperMacros", type: "Injection")
+public macro Injection(mock: Bool = true, build: Bool = false, injectorType: Any.Type? = nil, injectorMock: Bool = false) = #externalMacro(module: "CamperMacros", type: "Injection")
 
 /// Generates the dependency injector infrastructure for a class.
 ///
