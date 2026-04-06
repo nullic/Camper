@@ -21,7 +21,7 @@ extension Injection: PeerMacro {
         let name = protocolDecl.name.trimmed.text
         let implName = name + "Impl"
         let mockName = name + "Mock"
-        let privacyModifier = protocolDecl.privacyModifier
+        let implPrivacyModifier = protocolDecl.implPrivacyModifier
         let parentInjection = protocolDecl.parentInjectionProtocol
 
         guard name.hasSuffix("Injection") else { throw CamperMacrosError.injectionIncorrectName }
@@ -33,7 +33,7 @@ extension Injection: PeerMacro {
         if let parentInjection {
             result.append(makeInheritedImplDecl(
                 name: name, implName: implName,
-                privacyModifier: privacyModifier,
+                privacyModifier: implPrivacyModifier,
                 parentInjection: parentInjection,
                 variables: protocolDecl.allVariables
             ))
@@ -41,7 +41,7 @@ extension Injection: PeerMacro {
             result.append(try makeRootImplDecl(
                 name: name, implName: implName,
                 injectorType: injectorType,
-                privacyModifier: privacyModifier,
+                privacyModifier: implPrivacyModifier,
                 variables: protocolDecl.allVariables
             ))
         }
@@ -52,7 +52,7 @@ extension Injection: PeerMacro {
             if let parentInjection {
                 result.append(makeInheritedInjectorMockDecl(
                     name: name, mockName: mockName,
-                    privacyModifier: privacyModifier,
+                    privacyModifier: implPrivacyModifier,
                     parentInjection: parentInjection,
                     variables: protocolDecl.allVariables
                 ))
@@ -60,7 +60,7 @@ extension Injection: PeerMacro {
                 result.append(try makeRootInjectorMockDecl(
                     name: name, mockName: mockName,
                     injectorType: injectorType,
-                    privacyModifier: privacyModifier,
+                    privacyModifier: implPrivacyModifier,
                     variables: protocolDecl.allVariables
                 ))
             }

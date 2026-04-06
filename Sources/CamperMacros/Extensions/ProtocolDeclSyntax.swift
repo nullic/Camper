@@ -29,6 +29,16 @@ extension ProtocolDeclSyntax {
         }
     }
 
+    /// Access modifier for generated Impl/Mock classes.
+    /// Capped at `internal` because implementations may reference internal types.
+    var implPrivacyModifier: String {
+        if isPrivateOrFileprivate {
+            return "fileprivate"
+        } else {
+            return "internal"
+        }
+    }
+
     var parentInjectionProtocol: String? {
         guard let inheritanceClause else { return nil }
         for inherited in inheritanceClause.inheritedTypes {
