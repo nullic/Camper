@@ -19,6 +19,7 @@ public enum IOModel {
             let uniqueSyntax = try FunctionDeclSyntax("\(raw: privacyModifier) class func unique(_ value: \(raw: uniqueType), in context: ModelContext) throws -> \(raw: className)?") {
                 "var descriptor = FetchDescriptor<\(raw: className)>(predicate: #Predicate { $0.\(raw: uniqueName) == value })"
                 "descriptor.fetchLimit = 1"
+                "descriptor.includePendingChanges = true"
                 "return try context.fetch(descriptor).first"
             }
             result.append(DeclSyntax(uniqueSyntax))

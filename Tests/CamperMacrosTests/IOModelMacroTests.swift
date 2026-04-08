@@ -712,6 +712,7 @@ final class IOModelMacroTests: XCTestCase {
                             $0.id == value
                         })
                     descriptor.fetchLimit = 1
+                    descriptor.includePendingChanges = true
                     return try context.fetch(descriptor).first
                 }
                 internal class func unique(_ values: [UUID], in context: ModelContext) throws -> [Item] {
