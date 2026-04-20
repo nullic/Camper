@@ -104,6 +104,66 @@ final class IOModelMacroTests: XCTestCase {
         )
     }
 
+    func testIOModelWithTransientProperty() {
+        assertMacroExpansion(
+            """
+            @IOModel
+            class User {
+                var name: String
+                @Transient var cache: String?
+            }
+            """,
+            expandedSource: """
+            class User {
+                var name: String
+                @Transient var cache: String?
+
+                internal protocol InputModel: Sendable {
+                    var name: String {
+                        get
+                    }
+                }
+
+                internal init(input: User.InputModel, context: ModelContext) throws {
+                    self.name = input.name
+                }
+
+                internal func update(input: User.InputModel) throws {
+                    self.name = input.name
+                }
+
+                internal struct Snapshot: User.InputModel, Codable, @unchecked Sendable {
+                    internal var name: String
+                    internal init(name: String) {
+                        self.name = name
+                    }
+                    internal init(_ input: User.InputModel) {
+                        self.name = input.name
+                    }
+                    private enum CodingKeys: CodingKey {
+                        case name
+                    }
+                    internal func encode(to encoder: any Encoder) throws {
+                        var container = encoder.container(keyedBy: CodingKeys.self)
+                        try container.encode(name, forKey: .name)
+                    }
+                    internal init(from decoder: any Decoder) throws {
+                        let values = try decoder.container(keyedBy: CodingKeys.self)
+                        self.name = try values.decode(String.self, forKey: .name)
+                    }
+                }
+
+                internal func snapshot(includeLinks: Bool = false) -> Snapshot {
+                    if includeLinks {
+                        return Snapshot(name: name)
+                    }else { return Snapshot(name: name) }
+                }
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     func testVirtualAttributeIsNoOp() {
         assertMacroExpansion(
             """
