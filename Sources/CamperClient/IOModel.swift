@@ -1,6 +1,7 @@
 import Camper
 import OSLog
 import SwiftData
+import SwiftUI
 
 @IOModel
 public final class NonModelModel {
@@ -54,6 +55,18 @@ func uniqueExample(context: ModelContext) throws {
     let models = try SomeModel.unique([id], in: context)
 
     _ = (model, models)
+}
+
+struct UniqueQueryExampleView: View {
+    @Query private var items: [SomeModel]
+
+    init(id: UUID) {
+        _items = Query(SomeModel.uniqueQuery(id))
+    }
+
+    var body: some View {
+        Text(items.first?.nickname ?? "not found")
+    }
 }
 
 func deleteExample(context: ModelContext) throws {

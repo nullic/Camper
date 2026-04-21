@@ -3,7 +3,7 @@ import Camper
 final class SomeDependency: Sendable {}
 
 enum SomeDependencyMock {
-    static let mock = SomeDependency()
+    static func mock() -> SomeDependency { SomeDependency() }
 }
 
 class SomeDependency2 {}

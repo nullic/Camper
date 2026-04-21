@@ -16,11 +16,16 @@ public enum IOModel {
             let uniqueName = unique.identifier
             let uniqueType = unique.rawIdentifierType
 
-            let uniqueSyntax = try FunctionDeclSyntax("\(raw: privacyModifier) class func unique(_ value: \(raw: uniqueType), in context: ModelContext) throws -> \(raw: className)?") {
+            let uniqueQuerySyntax = try FunctionDeclSyntax("\(raw: privacyModifier) class func uniqueQuery(_ value: \(raw: uniqueType)) -> FetchDescriptor<\(raw: className)>") {
                 "var descriptor = FetchDescriptor<\(raw: className)>(predicate: #Predicate { $0.\(raw: uniqueName) == value })"
                 "descriptor.fetchLimit = 1"
                 "descriptor.includePendingChanges = true"
-                "return try context.fetch(descriptor).first"
+                "return descriptor"
+            }
+            result.append(DeclSyntax(uniqueQuerySyntax))
+
+            let uniqueSyntax = try FunctionDeclSyntax("\(raw: privacyModifier) class func unique(_ value: \(raw: uniqueType), in context: ModelContext) throws -> \(raw: className)?") {
+                "try context.fetch(uniqueQuery(value)).first"
             }
             result.append(DeclSyntax(uniqueSyntax))
 

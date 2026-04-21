@@ -767,13 +767,16 @@ final class IOModelMacroTests: XCTestCase {
                 @_implements(UniqueFindable, uniqueValue)
                 internal var _uniqueValueId: UniqueID { id }
 
-                internal class func unique(_ value: UUID, in context: ModelContext) throws -> Item? {
+                internal class func uniqueQuery(_ value: UUID) -> FetchDescriptor<Item> {
                     var descriptor = FetchDescriptor<Item>(predicate: #Predicate {
                             $0.id == value
                         })
                     descriptor.fetchLimit = 1
                     descriptor.includePendingChanges = true
-                    return try context.fetch(descriptor).first
+                    return descriptor
+                }
+                internal class func unique(_ value: UUID, in context: ModelContext) throws -> Item? {
+                    try context.fetch(uniqueQuery(value)).first
                 }
                 internal class func unique(_ values: [UUID], in context: ModelContext) throws -> [Item] {
                     try values.compactMap {

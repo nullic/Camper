@@ -9,7 +9,7 @@ import SwiftData
 /// - `update(input:)` method for updating the model
 /// - `snapshot(includeLinks:)` for creating a codable snapshot
 /// - `UniqueFindable` conformance if an `@Attribute(.unique)` property exists
-/// - `unique(_:in:)`, `delete(_:in:)`, `insert(_:in:)`, `replace(_:in:)` class methods
+/// - `uniqueQuery(_:)`, `unique(_:in:)`, `delete(_:in:)`, `insert(_:in:)`, `replace(_:in:)` class methods
 ///
 /// For `@Relationship` properties, generates an `Input` enum with cases:
 /// `.ignore`, `.value`, `.input`, and `.link` (unless `@NonLinkable`).
