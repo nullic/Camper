@@ -109,11 +109,11 @@ public actor OperationExecutor {
         Task.detached { [self] in
             await taskQueue.enqueue {
                 if !ignoreActive, await activeOperations[id] == .inProgress {
-                    CamperLogger.operationExecutor.verbose("Operation \(id) is already in progress.")
+                    CamperLogger.operationExecutor.debug("Operation \(id) is already in progress.")
                     return
                 }
 
-                CamperLogger.operationExecutor.verbose("Starting operation \(id).")
+                CamperLogger.operationExecutor.debug("Starting operation \(id).")
                 do {
                     await setOperationState(id: id, state: .inProgress)
                     try await operation()
@@ -123,7 +123,7 @@ public actor OperationExecutor {
                     await setOperationState(id: id, state: .failed(error))
                 }
 
-                CamperLogger.operationExecutor.verbose("Finished operation \(id).")
+                CamperLogger.operationExecutor.debug("Finished operation \(id).")
             }
         }
     }

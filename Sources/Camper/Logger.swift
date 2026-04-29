@@ -7,23 +7,42 @@ public protocol Logger {
     var subsystem: String { get }
     var category: String { get }
 
-    func verbose(_ message: String, file: String, function: String, line: Int)
     func debug(_ message: String, file: String, function: String, line: Int)
     func info(_ message: String, file: String, function: String, line: Int)
+    func notice(_ message: String, file: String, function: String, line: Int)
     func warning(_ message: String, file: String, function: String, line: Int)
     func error(_ message: String, file: String, function: String, line: Int)
+    func critical(_ message: String, file: String, function: String, line: Int)
+    func fault(_ message: String, file: String, function: String, line: Int)
 }
 
-private extension SwiftyBeaver.Level {
+private enum LogLevel {
+    case debug
+    case info
+    case notice
+    case warning
+    case error
+    case critical
+    case fault
+
+    var swiftyBeaver: SwiftyBeaver.Level {
+        switch self {
+        case .debug: return .debug
+        case .info, .notice: return .info
+        case .warning: return .warning
+        case .error: return .error
+        case .critical: return .critical
+        case .fault: return .fault
+        }
+    }
+
     var osLogType: OSLogType {
         switch self {
-        case .verbose: return .default
         case .debug: return .debug
         case .info: return .info
-        case .warning: return .error
-        case .error: return .fault
-        case .critical: return .fault
-        case .fault: return .fault
+        case .notice: return .default
+        case .warning, .error: return .error
+        case .critical, .fault: return .fault
         }
     }
 }
@@ -37,37 +56,45 @@ public extension Logger {
         LoggerConfigurator.useEnvironmentVariables == false || ProcessInfo.processInfo.environment["\(category)_LOGS"] != nil
     }
 
-    private func log(level: SwiftyBeaver.Level, _ message: String, file: String, function: String, line: Int) {
-        guard needWriteLog, LoggerConfigurator.minimumLogLevel.rawValue <= level.rawValue else { return }
+    private func log(_ level: LogLevel, _ message: String, file: String, function: String, line: Int) {
+        let sbLevel = level.swiftyBeaver
+        guard needWriteLog, LoggerConfigurator.minimumLogLevel.rawValue <= sbLevel.rawValue else { return }
 
-        let log = "[\(category)][\((file as NSString).lastPathComponent):\(line) -- \(function)]: \(message)"
-        LoggerConfigurator.logger.custom(level: level, message: log)
+        let location = "\((file as NSString).lastPathComponent):\(line) -- \(function)"
+        LoggerConfigurator.logger.custom(level: sbLevel, message: "[\(category)][\(location)]: \(message)")
+        os.Logger(subsystem: subsystem, category: category).log(level: level.osLogType, "[\(location)]: \(message)")
 
-        os.Logger(subsystem: subsystem, category: category).log(level: level.osLogType, "[\((file as NSString).lastPathComponent):\(line) -- \(function)]: \(message)")
-
-        if level.rawValue >= SwiftyBeaver.Level.error.rawValue {
+        if sbLevel.rawValue >= SwiftyBeaver.Level.error.rawValue {
             LoggerConfigurator.onError?(message)
         }
     }
 
-    func verbose(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(level: .verbose, message, file: file, function: function, line: line)
-    }
-
     func debug(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(level: .debug, message, file: file, function: function, line: line)
+        log(.debug, message, file: file, function: function, line: line)
     }
 
     func info(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(level: .verbose, message, file: file, function: function, line: line)
+        log(.info, message, file: file, function: function, line: line)
+    }
+
+    func notice(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        log(.notice, message, file: file, function: function, line: line)
     }
 
     func warning(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(level: .warning, message, file: file, function: function, line: line)
+        log(.warning, message, file: file, function: function, line: line)
     }
 
     func error(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(level: .error, message, file: file, function: function, line: line)
+        log(.error, message, file: file, function: function, line: line)
+    }
+
+    func critical(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        log(.critical, message, file: file, function: function, line: line)
+    }
+
+    func fault(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        log(.fault, message, file: file, function: function, line: line)
     }
 }
 

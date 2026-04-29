@@ -55,12 +55,12 @@ public final class FolderMonitor: @unchecked Sendable {
         guard isStopped else { return }
 
         let path = url.path
-        CamperLogger.fileMonitor.verbose("start monitoring path: \(path)")
+        CamperLogger.fileMonitor.debug("start monitoring path: \(path)")
 
         let fileDescriptor = open(path, O_EVTONLY)
         folderMonitorSource = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fileDescriptor, eventMask: .all, queue: queue)
         folderMonitorSource?.setEventHandler { [weak self] in
-            CamperLogger.fileMonitor.verbose("did change at path: \(path)")
+            CamperLogger.fileMonitor.debug("did change at path: \(path)")
             guard let self else { return }
             Task { @MainActor in
                 self.readFolderContent()
@@ -68,7 +68,7 @@ public final class FolderMonitor: @unchecked Sendable {
         }
 
         folderMonitorSource?.setCancelHandler { [weak self] in
-            CamperLogger.fileMonitor.verbose("did cancel at path: \(path)")
+            CamperLogger.fileMonitor.debug("did cancel at path: \(path)")
             close(fileDescriptor)
             self?.folderMonitorSource = nil
             self?.isStopped = true
@@ -85,7 +85,7 @@ public final class FolderMonitor: @unchecked Sendable {
         guard let folderMonitorSource else { return }
         folderMonitorSource.cancel()
         self.folderMonitorSource = nil
-        CamperLogger.fileMonitor.verbose("stop monitoring path: \(url.path)")
+        CamperLogger.fileMonitor.debug("stop monitoring path: \(url.path)")
     }
 
     @MainActor
