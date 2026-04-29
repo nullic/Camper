@@ -9,6 +9,9 @@ final class HexColorMacroTests: XCTestCase {
         "hexColor": HexColorMacro.self,
         "hexUIColor": HexColorMacro.self,
         "hexNSColor": HexColorMacro.self,
+        "cssColor": HexColorMacro.self,
+        "cssUIColor": HexColorMacro.self,
+        "cssNSColor": HexColorMacro.self,
     ]
 
     // MARK: - #hexColor
@@ -56,6 +59,30 @@ final class HexColorMacroTests: XCTestCase {
             """,
             expandedSource: """
             let color = Color(red: 1.0, green: 0.0, blue: 0.0, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColorFromString3Digit() {
+        assertMacroExpansion(
+            """
+            let color = #hexColor("F00")
+            """,
+            expandedSource: """
+            let color = Color(red: 1.0, green: 0.0, blue: 0.0, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColorFromString4Digit() {
+        assertMacroExpansion(
+            """
+            let color = #hexColor("0F0F")
+            """,
+            expandedSource: """
+            let color = Color(red: 0.0, green: 1.0, blue: 0.0, opacity: 1.0)
             """,
             macros: testMacros
         )
@@ -143,6 +170,82 @@ final class HexColorMacroTests: XCTestCase {
         )
     }
 
+    // MARK: - #cssColor
+
+    func testCssColorFromHex() {
+        assertMacroExpansion(
+            """
+            let color = #cssColor("#FF0000")
+            """,
+            expandedSource: """
+            let color = Color(red: 1.0, green: 0.0, blue: 0.0, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testCssColorFromShortHex() {
+        assertMacroExpansion(
+            """
+            let color = #cssColor("#F00")
+            """,
+            expandedSource: """
+            let color = Color(red: 1.0, green: 0.0, blue: 0.0, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testCssColorFromRGB() {
+        assertMacroExpansion(
+            """
+            let color = #cssColor("rgb(255, 0, 0)")
+            """,
+            expandedSource: """
+            let color = Color(red: 1.0, green: 0.0, blue: 0.0, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testCssColorFromRGBA() {
+        assertMacroExpansion(
+            """
+            let color = #cssColor("rgba(0, 255, 0, 0.5)")
+            """,
+            expandedSource: """
+            let color = Color(red: 0.0, green: 1.0, blue: 0.0, opacity: 0.5)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testCssUIColorFromRGBA() {
+        assertMacroExpansion(
+            """
+            let color = #cssUIColor("rgba(0, 0, 255, 1)")
+            """,
+            expandedSource: """
+            let color = UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testCssUIColorLightDarkMixed() {
+        assertMacroExpansion(
+            """
+            let color = #cssUIColor("#FFFFFF", "rgb(0, 0, 0)")
+            """,
+            expandedSource: """
+            let color = UIColor {
+                $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
     // MARK: - Error cases
 
     func testHexColorInvalidFormat() {
@@ -155,6 +258,21 @@ final class HexColorMacroTests: XCTestCase {
             """,
             diagnostics: [
                 DiagnosticSpec(message: "#hexColor accept only next formats: '#rgb' '#rgba' '#rrggbb' '#rrggbbaa' '0xrgb' '0xrgba' '0xrrggbb' '0xrrggbbaa'", line: 1, column: 13),
+            ],
+            macros: testMacros
+        )
+    }
+
+    func testCssColorInvalidFormat() {
+        assertMacroExpansion(
+            """
+            let color = #cssColor("rgb(bad)")
+            """,
+            expandedSource: """
+            let color = #cssColor("rgb(bad)")
+            """,
+            diagnostics: [
+                DiagnosticSpec(message: "#cssColor accept only next formats: '#rgb' '#rgba' '#rrggbb' '#rrggbbaa' 'rgb(r, g, b)' 'rgba(r, g, b, a)'", line: 1, column: 13),
             ],
             macros: testMacros
         )

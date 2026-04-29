@@ -16,12 +16,16 @@ public macro hexColor(_ stringLiteral: StringLiteralType) -> Color = #externalMa
 @freestanding(expression)
 public macro hexColor(_ hexadecimalIntegerLiteral: IntegerLiteralType) -> Color = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
 
-public extension Color {
-    init?(hexString: String) {
-        guard let (red, green, blue, opacity) = scan(hexString: hexString) else { return nil }
-        self.init(red: red, green: green, blue: blue, opacity: opacity)
-    }
-}
+/// Creates a `Color` from a CSS-style string literal.
+///
+/// Supports hex (`#FFF`, `#FFFF`, `#FFFFFF`, `#FFFFFFFF`), `rgb(r, g, b)`,
+/// and `rgba(r, g, b, a)` formats. R/G/B are 0...255, alpha is 0...1.
+///
+///     let red = #cssColor("#FF0000")
+///     let green = #cssColor("rgb(0, 255, 0)")
+///     let semiBlue = #cssColor("rgba(0, 0, 255, 0.5)")
+@freestanding(expression)
+public macro cssColor(_ stringLiteral: StringLiteralType) -> Color = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
 
 #if canImport(UIKit)
     /// Creates a dynamic `UIColor` that adapts to light/dark mode using hex string literals.
@@ -48,12 +52,19 @@ public extension Color {
     @freestanding(expression)
     public macro hexUIColor(_ hexadecimalIntegerLiteral: IntegerLiteralType) -> UIColor = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
 
-    public extension UIColor {
-        convenience init?(hexString: String) {
-            guard let (red, green, blue, alpha) = scan(hexString: hexString) else { return nil }
-            self.init(red: red, green: green, blue: blue, alpha: alpha)
-        }
-    }
+    /// Creates a `UIColor` from a CSS-style string literal.
+    ///
+    ///     let red = #cssUIColor("#FF0000")
+    ///     let green = #cssUIColor("rgb(0, 255, 0)")
+    ///     let semiBlue = #cssUIColor("rgba(0, 0, 255, 0.5)")
+    @freestanding(expression)
+    public macro cssUIColor(_ stringLiteral: StringLiteralType) -> UIColor = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
+
+    /// Creates a dynamic `UIColor` that adapts to light/dark mode using CSS-style string literals.
+    ///
+    ///     let adaptive = #cssUIColor("#FFFFFF", "rgb(0, 0, 0)")
+    @freestanding(expression)
+    public macro cssUIColor(_ light: StringLiteralType, _ dark: StringLiteralType) -> UIColor = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
 
 #endif
 
@@ -82,60 +93,18 @@ public extension Color {
     @freestanding(expression)
     public macro hexNSColor(_ hexadecimalIntegerLiteral: IntegerLiteralType) -> NSColor = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
 
-    public extension NSColor {
-        convenience init?(hexString: String) {
-            guard let (red, green, blue, alpha) = scan(hexString: hexString) else { return nil }
-            self.init(red: red, green: green, blue: blue, alpha: alpha)
-        }
-    }
+    /// Creates an `NSColor` from a CSS-style string literal.
+    ///
+    ///     let red = #cssNSColor("#FF0000")
+    ///     let green = #cssNSColor("rgb(0, 255, 0)")
+    ///     let semiBlue = #cssNSColor("rgba(0, 0, 255, 0.5)")
+    @freestanding(expression)
+    public macro cssNSColor(_ stringLiteral: StringLiteralType) -> NSColor = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
+
+    /// Creates a dynamic `NSColor` that adapts to light/dark appearance using CSS-style string literals.
+    ///
+    ///     let adaptive = #cssNSColor("#FFFFFF", "rgb(0, 0, 0)")
+    @freestanding(expression)
+    public macro cssNSColor(_ light: StringLiteralType, _ dark: StringLiteralType) -> NSColor = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
 
 #endif
-
-private func scan(hexString: String) -> (Double, Double, Double, Double)? {
-    let hexString = hexString
-        .replacingOccurrences(of: "\"", with: "")
-        .replacingOccurrences(of: "#", with: "")
-        .replacingOccurrences(of: "0x", with: "")
-        .replacingOccurrences(of: ",", with: "")
-        .replacingOccurrences(of: " ", with: "")
-
-    let scanner = Scanner(string: hexString)
-    var hexValue: UInt64 = 0
-    scanner.scanHexInt64(&hexValue)
-
-    let red: Double
-    let green: Double
-    let blue: Double
-    let opacity: Double
-
-    switch hexString.count {
-    case 3: // RGB
-        red = Double((hexValue & 0x0F00) >> 8) / 255.0
-        green = Double((hexValue & 0x00F0) >> 4) / 255.0
-        blue = Double((hexValue & 0x000F) >> 0) / 255.0
-        opacity = 1.0
-
-    case 4: // RGBA
-        red = Double((hexValue & 0xF000) >> 12) / 255.0
-        green = Double((hexValue & 0x0F00) >> 8) / 255.0
-        blue = Double((hexValue & 0x00F0) >> 4) / 255.0
-        opacity = Double((hexValue & 0x000F) >> 0) / 255.0
-
-    case 6: // RRGGBB
-        red = Double((hexValue & 0x00FF_0000) >> 16) / 255.0
-        green = Double((hexValue & 0x0000_FF00) >> 8) / 255.0
-        blue = Double((hexValue & 0x0000_00FF) >> 0) / 255.0
-        opacity = 1.0
-
-    case 8: // RRGGBBAA
-        red = Double((hexValue & 0xFF00_0000) >> 24) / 255.0
-        green = Double((hexValue & 0x00FF_0000) >> 16) / 255.0
-        blue = Double((hexValue & 0x0000_FF00) >> 8) / 255.0
-        opacity = Double((hexValue & 0x0000_00FF) >> 0) / 255.0
-
-    default:
-        return nil
-    }
-
-    return (red, green, blue, opacity)
-}

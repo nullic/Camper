@@ -8,6 +8,7 @@ enum CamperMacrosError: CustomStringConvertible, Error {
     case environmentValueIncorrectType
     case environmentValueDefaultValue
     case hexColorInvalidValue
+    case cssColorInvalidValue
 
     case injectionIncorrectType
     case injectionIncorrectName
@@ -31,6 +32,7 @@ enum CamperMacrosError: CustomStringConvertible, Error {
         case .environmentValueIncorrectType: return "@EnvironmentValue can only be applied to variable"
         case .environmentValueDefaultValue: return "@EnvironmentValue must have default value"
         case .hexColorInvalidValue: return "#hexColor accept only next formats: '#rgb' '#rgba' '#rrggbb' '#rrggbbaa' '0xrgb' '0xrgba' '0xrrggbb' '0xrrggbbaa'"
+        case .cssColorInvalidValue: return "#cssColor accept only next formats: '#rgb' '#rgba' '#rrggbb' '#rrggbbaa' 'rgb(r, g, b)' 'rgba(r, g, b, a)'"
         case .injectionIncorrectType: return "@Injection can only be applied to protocol"
         case .injectionIncorrectName: return "@Injection protocol name must end up with 'Injection'"
         case .injectorIncorrectType: return "@Injector can only be applied to class"
