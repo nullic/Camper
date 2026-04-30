@@ -58,23 +58,10 @@ public actor OperationExecutor {
     @MainActor private var activeOperations: [OperationID: OperationState] = [:]
     @MainActor private var watchers = NSMapTable<NSString, OperationWatcher>(keyOptions: .strongMemory, valueOptions: .weakMemory)
 
-    private nonisolated(unsafe) let eventsSubject: PassthroughSubject<(OperationID, OperationState), Never>
-    private let stream: AsyncStream<(OperationID, OperationState)>
+    private nonisolated(unsafe) let eventsSubject = PassthroughSubject<(OperationID, OperationState), Never>()
     private let taskQueue = TaskQueue()
 
-    public init() {
-        let passthroughSubject = PassthroughSubject<(OperationID, OperationState), Never>()
-
-        self.eventsSubject = passthroughSubject
-        self.stream = AsyncStream<(OperationID, OperationState)> { continuation in
-            nonisolated(unsafe) let cancellable = passthroughSubject.sink { value in
-                continuation.yield(value)
-            }
-            continuation.onTermination = { _ in
-                cancellable.cancel()
-            }
-        }
-    }
+    public init() {}
 
     @MainActor
     public func watcher(id: OperationID) -> OperationWatcher {
@@ -91,18 +78,49 @@ public actor OperationExecutor {
     @available(macOS 15.0, *)
     @available(iOS 18.0, *)
     public func stream(id: OperationID) -> sending any AsyncSequence<OperationState, Never> {
-        stream.filter { $0.0 == id }.map { $0.1 }
+        makeStream(id: id)
     }
 
     @available(iOS 18.0, *)
     public func wait(id: OperationID) async throws {
-        for await state in stream.filter({ $0.0 == id }).map({ $0.1 }) {
+        // Subscribe before snapshotting state so a completion event between
+        // the snapshot and iteration cannot be missed.
+        let stream = makeStream(id: id)
+
+        if let current = await currentState(id: id) {
+            switch current {
+            case .success: return
+            case .failed(let error): throw error
+            case .idle, .inProgress: break
+            }
+        }
+
+        for await state in stream {
             switch state {
             case .success: return
             case .failed(let error): throw error
-            default: break
+            case .idle, .inProgress: continue
             }
         }
+    }
+
+    private nonisolated func makeStream(id: OperationID) -> AsyncStream<OperationState> {
+        AsyncStream<OperationState> { continuation in
+            nonisolated(unsafe) let cancellable = eventsSubject
+                .filter { $0.0 == id }
+                .map { $0.1 }
+                .sink { state in
+                    continuation.yield(state)
+                }
+            continuation.onTermination = { _ in
+                cancellable.cancel()
+            }
+        }
+    }
+
+    @MainActor
+    private func currentState(id: OperationID) -> OperationState? {
+        activeOperations[id]
     }
 
     public nonisolated func perform(id: OperationID, ignoreActive: Bool = false, operation: @escaping @Sendable () async throws -> Void) {

@@ -152,6 +152,113 @@ final class OperationExecutorTests: XCTestCase {
         await waitForState(watcherB) { $0 == .success }
     }
 
+    // MARK: - Bug fixes
+
+    @available(macOS 15.0, *)
+    func testStreamMulticastAllSubscribersReceiveAllEvents() async throws {
+        let executor = OperationExecutor()
+        let id: OperationID = "multicast"
+
+        // Subscribe two independent consumers BEFORE the op runs.
+        let stream1 = await executor.stream(id: id)
+        let stream2 = await executor.stream(id: id)
+
+        let task1 = Task<[OperationState], Never> {
+            var states: [OperationState] = []
+            for await state in stream1 {
+                states.append(state)
+                if state.isFinished { break }
+            }
+            return states
+        }
+        let task2 = Task<[OperationState], Never> {
+            var states: [OperationState] = []
+            for await state in stream2 {
+                states.append(state)
+                if state.isFinished { break }
+            }
+            return states
+        }
+
+        // Give the AsyncStream sinks a moment to subscribe.
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        executor.perform(id: id) {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        let s1 = await task1.value
+        let s2 = await task2.value
+
+        // Both subscribers must observe the full transition (.inProgress, .success).
+        XCTAssertEqual(s1, [.inProgress, .success], "subscriber 1 missed events: \(s1)")
+        XCTAssertEqual(s2, [.inProgress, .success], "subscriber 2 missed events: \(s2)")
+    }
+
+    @available(iOS 18.0, *)
+    func testWaitReturnsImmediatelyForAlreadyFinishedOperation() async throws {
+        let executor = OperationExecutor()
+        let id: OperationID = "wait.finished"
+
+        executor.perform(id: id) {}
+        // Let the op complete BEFORE we call wait, so wait must rely on the
+        // current-state snapshot rather than on receiving a stream event.
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await executor.wait(id: id)
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                throw NSError(domain: "TestTimeout", code: 0, userInfo: [NSLocalizedDescriptionKey: "wait hung — race-condition regression"])
+            }
+            try await group.next()
+            group.cancelAll()
+        }
+    }
+
+    @available(iOS 18.0, *)
+    func testWaitThrowsWhenOperationFails() async {
+        struct Boom: Error {}
+        let executor = OperationExecutor()
+        let id: OperationID = "wait.fail"
+
+        executor.perform(id: id) { throw Boom() }
+
+        do {
+            try await executor.wait(id: id)
+            XCTFail("expected throw")
+        } catch is Boom {
+            // expected
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+    }
+
+    @available(iOS 18.0, *)
+    func testWaitReturnsForRunningOperation() async throws {
+        let executor = OperationExecutor()
+        let id: OperationID = "wait.live"
+
+        executor.perform(id: id) {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        // Subscribe while the op is still running — wait must observe completion.
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                try await executor.wait(id: id)
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+                throw NSError(domain: "TestTimeout", code: 0, userInfo: [NSLocalizedDescriptionKey: "wait did not return"])
+            }
+            try await group.next()
+            group.cancelAll()
+        }
+    }
+
     func testIgnoreActiveAllowsRepeatPerform() async {
         let executor = OperationExecutor()
         let id: OperationID = "repeated"
