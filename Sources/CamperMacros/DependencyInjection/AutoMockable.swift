@@ -173,13 +173,22 @@ public enum AutoMockable: PeerMacro {
 
     private static func typeIdentifier(_ type: TypeSyntax) -> String {
         let raw = type.trimmedDescription
-        let stripped = raw.hasSuffix("?") || raw.hasSuffix("!") ? String(raw.dropLast()) : raw
-        let isArray = stripped.hasPrefix("[") && stripped.hasSuffix("]")
         let filtered = raw.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }
         var str = String(filtered)
         guard !str.isEmpty else { return str }
-        if isArray { str += "s" }
+        if isArrayType(type) { str += "s" }
         return str.prefix(1).uppercased() + str.dropFirst()
+    }
+
+    private static func isArrayType(_ type: TypeSyntax) -> Bool {
+        if type.is(ArrayTypeSyntax.self) { return true }
+        if let optional = type.as(OptionalTypeSyntax.self) {
+            return isArrayType(optional.wrappedType)
+        }
+        if let iuo = type.as(ImplicitlyUnwrappedOptionalTypeSyntax.self) {
+            return isArrayType(iuo.wrappedType)
+        }
+        return false
     }
 
     // MARK: - Closure Type
