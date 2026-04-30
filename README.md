@@ -353,6 +353,68 @@ LoggerConfigurator.configure(
 )
 ```
 
+`minimumLogLevel` accepts `Camper.LogLevel` (`.verbose`, `.debug`, `.info`, `.warning`, `.error`, `.critical`, `.fault`) — you don't need to import SwiftyBeaver to choose one.
+
+### Per-category gating with environment variables
+
+When `useEnvironmentVariables: true`, every log call is suppressed unless an environment variable named `<CATEGORY>_LOGS` is set in the process. The variable name is derived from the logger's `category` (uppercased). Useful for opting in to specific subsystems during debugging without touching code:
+
+```swift
+LoggerConfigurator.configure(useEnvironmentVariables: true, minimumLogLevel: .debug)
+
+// In your scheme/launch environment, set NETWORK_LOGS=1 to allow only network logs.
+```
+
+### Error callback
+
+`onError` fires for every `.error`/`.critical`/`.fault` message. Useful for forwarding to crash reporters:
+
+```swift
+LoggerConfigurator.configure(onError: { message in
+    Crashlytics.crashlytics().log(message)
+})
+```
+
+### File logs
+
+When `writeLogFile: true`, logs are written to a `.log` file under `LoggerConfigurator.logsFolder` (defaults to `Application Support/logs`). Helpers:
+
+- `LoggerConfigurator.flush()` — flush buffered output.
+- `LoggerConfigurator.clearLogs()` — remove all log files (re-creates a fresh destination if file logging is enabled).
+- `LoggerConfigurator.zipLogs()` — flush, archive the folder into a sibling `.zip`, return the archive URL.
+
+---
+
+## Operations
+
+### `OperationExecutor`
+
+An actor that runs `async`/`throws` operations identified by an `OperationID` and exposes their lifecycle as observable state.
+
+```swift
+let executor = OperationExecutor.shared
+let id: OperationID = "user.login"
+
+// Fire-and-forget: state is tracked under `id`.
+executor.perform(id: id) {
+    try await api.login(...)
+}
+
+// SwiftUI: drive a view from the operation's state.
+let watcher = await executor.watcher(id: id)
+// watcher.state transitions: .idle -> .inProgress -> .success | .failed(OperationError)
+```
+
+`OperationState`:
+- `.idle`, `.inProgress`, `.success`
+- `.failed(OperationError)` — `OperationError` is a `Sendable` wrapper around any thrown error, exposing `description` and `underlyingTypeName`.
+
+`OperationExecutor` also exposes:
+- `stream(id:)` — multicast `AsyncSequence` of states for `id` (each call returns its own subscription; multiple concurrent consumers are supported).
+- `wait(id:)` — `async throws` until the operation reaches `.success` or `.failed`. Returns immediately if the operation already finished.
+
+`perform(id:ignoreActive:operation:)` skips the call if the same `id` is currently `.inProgress`, unless `ignoreActive: true` is passed.
+
 ---
 
 ## License

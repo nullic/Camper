@@ -13,6 +13,7 @@ protocol AuthRepository {
 
 @AutoMockable
 protocol AnalyticsTracker {
+    @MockName("track")
     func track(event: String, properties: [String: String])
     func observe(values: [String])
     func flush()
@@ -34,9 +35,10 @@ func checkAutoMockable() {
     auth.refreshReturnValue = "token"
 
     let analytics = AnalyticsTrackerMock()
-    // Multi-param mock methods record via ReceivedArguments / ReceivedInvocations.
+    // @MockName lets us write the short, predictable form.
     analytics.track(event: "viewed", properties: ["source": "home"])
-    _ = analytics.trackEventStringPropertiesStringStringReceivedInvocations
+    _ = analytics.trackReceivedInvocations
+    _ = analytics.trackCallsCount
 
     analytics.observe(values: ["a", "b"])
     _ = analytics.observeValuesStringsReceivedValues

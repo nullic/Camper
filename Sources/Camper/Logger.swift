@@ -17,7 +17,33 @@ public protocol Logger {
     func fault(_ message: String, file: String, function: String, line: Int)
 }
 
-private enum LogLevel {
+public enum LogLevel: Int, Sendable, Comparable {
+    case verbose = 0
+    case debug = 1
+    case info = 2
+    case warning = 3
+    case error = 4
+    case critical = 5
+    case fault = 6
+
+    public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+
+    fileprivate var swiftyBeaver: SwiftyBeaver.Level {
+        switch self {
+        case .verbose: return .verbose
+        case .debug: return .debug
+        case .info: return .info
+        case .warning: return .warning
+        case .error: return .error
+        case .critical: return .critical
+        case .fault: return .fault
+        }
+    }
+}
+
+private enum InternalLogLevel {
     case debug
     case info
     case notice
@@ -53,7 +79,7 @@ public extension Logger where Self: RawRepresentable {
 }
 
 public extension Logger {
-    private func log(_ level: LogLevel, _ message: String, file: String, function: String, line: Int) {
+    private func log(_ level: InternalLogLevel, _ message: String, file: String, function: String, line: Int) {
         let sbLevel = level.swiftyBeaver
         let config = LoggerConfigurator.snapshot
         let envOK = !config.useEnvironmentVariables || ProcessInfo.processInfo.environment["\(category)_LOGS"] != nil
@@ -103,7 +129,7 @@ public enum LoggerConfigurator {
     fileprivate struct State: Sendable {
         var useEnvironmentVariables: Bool = false
         var writeLogFile: Bool = false
-        var minimumLogLevel: SwiftyBeaver.Level = .debug
+        var minimumLogLevel: LogLevel = .debug
         var onError: (@Sendable (String) -> Void)?
     }
 
@@ -119,7 +145,7 @@ public enum LoggerConfigurator {
     public static func configure(
         useEnvironmentVariables: Bool = false,
         writeLogFile: Bool = false,
-        minimumLogLevel: SwiftyBeaver.Level = .debug,
+        minimumLogLevel: LogLevel = .debug,
         onError: (@Sendable (String) -> Void)? = nil
     ) {
         stateLock.withLock {

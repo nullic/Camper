@@ -5,7 +5,7 @@ public enum OperationState: Equatable, Sendable {
     case idle
     case inProgress
     case success
-    case failed(Error)
+    case failed(OperationError)
 
     public static func == (lhs: OperationState, rhs: OperationState) -> Bool {
         switch (lhs, rhs) {
@@ -22,6 +22,28 @@ public enum OperationState: Equatable, Sendable {
         case .idle, .inProgress: return false
         case .success, .failed: return true
         }
+    }
+}
+
+/// Sendable wrapper around any error captured by `OperationExecutor`.
+///
+/// Stores a `String` description of the original error so the failure
+/// can be propagated through `Sendable` boundaries (e.g. via
+/// `OperationState.failed` and `AsyncStream`) without requiring the
+/// underlying error type to be `Sendable`. The underlying type name is
+/// preserved as metadata for diagnostics.
+public struct OperationError: Error, Sendable, CustomStringConvertible, Equatable {
+    public let description: String
+    public let underlyingTypeName: String
+
+    public init(_ error: any Error) {
+        self.description = String(describing: error)
+        self.underlyingTypeName = String(reflecting: type(of: error))
+    }
+
+    public init(_ description: String) {
+        self.description = description
+        self.underlyingTypeName = "String"
     }
 }
 
@@ -138,7 +160,7 @@ public actor OperationExecutor {
                     await setOperationState(id: id, state: .success)
                 } catch {
                     CamperLogger.operationExecutor.error("Operation \(id) failed with error \(error)")
-                    await setOperationState(id: id, state: .failed(error))
+                    await setOperationState(id: id, state: .failed(OperationError(error)))
                 }
 
                 CamperLogger.operationExecutor.debug("Finished operation \(id).")

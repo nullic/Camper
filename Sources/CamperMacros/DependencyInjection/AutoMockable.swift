@@ -3,29 +3,18 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-// TODO(@AutoMockable): known limitations to address before stabilizing the API.
+// TODO(@AutoMockable): remaining limitations to revisit post-1.0.
 //
-// 1. Generated member names are long and hard to predict. For multi-param
-//    methods we get e.g. `trackEventStringPropertiesStringStringReceivedInvocations`.
-//    Consider switching to short stable names (`trackInvocations`,
-//    `trackArguments`, `trackClosure`) and rejecting overloads with a diagnostic,
-//    or letting the user opt in via `@MockName("...")`.
-//
-// 2. No disambiguation strategy for overloaded methods. Two methods with the
-//    same base name compile only because their parameter type identifiers differ.
-//    The naming scheme is the only thing keeping them apart, and the user has
-//    no way to query "the foo overload" without spelling the full mangled name.
-//
-// 3. Test coverage for non-trivial method shapes is missing. Specifically:
+// 1. Test coverage for non-trivial method shapes is missing. Specifically:
 //    `@MainActor` methods, `async throws` combinations, methods returning
 //    closures, generic methods, and `@Sendable`-annotated parameter closures.
-//    The integration target in CamperClient covers basic shapes; macro-level
+//    Integration coverage exists in CamperClient; macro-level
 //    `assertMacroExpansion` tests for these have not been written yet.
 //
-// 4. `typeIdentifier` does not unwrap generics. `Result<String, Error>` becomes
+// 2. `typeIdentifier` does not unwrap generics. `Result<String, Error>` becomes
 //    `ResultStringError` (concatenated). For `Array<T>` (long form) we miss the
-//    `s` suffix because only `[T]` is detected as `ArrayTypeSyntax`. Acceptable
-//    for now but worth revisiting alongside (1).
+//    `s` suffix because only `[T]` is detected as `ArrayTypeSyntax`. Users who
+//    care about the auto-generated prefix can override it with `@MockName(...)`.
 
 public enum AutoMockable: PeerMacro {
     public static func expansion(
@@ -131,7 +120,7 @@ public enum AutoMockable: PeerMacro {
             $0.as(AttributeSyntax.self)?.attributeName.trimmedDescription == "MainActor"
         }
 
-        let uniqueName = buildUniqueName(methodName: methodName, params: params)
+        let uniqueName = mockNameOverride(on: funcDecl) ?? buildUniqueName(methodName: methodName, params: params)
         var lines: [String] = []
 
         lines.append("    //MARK: - \(methodName)")
@@ -182,6 +171,20 @@ public enum AutoMockable: PeerMacro {
     }
 
     // MARK: - Unique Name
+
+    private static func mockNameOverride(on funcDecl: FunctionDeclSyntax) -> String? {
+        for element in funcDecl.attributes {
+            guard let attr = element.as(AttributeSyntax.self) else { continue }
+            guard attr.attributeName.trimmedDescription == "MockName" else { continue }
+            guard let arguments = attr.arguments?.as(LabeledExprListSyntax.self),
+                  let first = arguments.first,
+                  let stringLiteral = first.expression.as(StringLiteralExprSyntax.self),
+                  let segment = stringLiteral.segments.first?.as(StringSegmentSyntax.self)
+            else { continue }
+            return segment.content.text
+        }
+        return nil
+    }
 
     private static func buildUniqueName(methodName: String, params: [FunctionParameterSyntax]) -> String {
         guard !params.isEmpty else { return methodName }

@@ -43,20 +43,29 @@ final class OperationStateTests: XCTestCase {
     func testEqualityIgnoresFailedPayload() {
         struct A: Error {}
         struct B: Error {}
-        XCTAssertEqual(OperationState.failed(A()), OperationState.failed(B()))
+        XCTAssertEqual(OperationState.failed(OperationError(A())), OperationState.failed(OperationError(B())))
     }
 
     func testCaseDistinctness() {
         XCTAssertNotEqual(OperationState.idle, .inProgress)
         XCTAssertNotEqual(OperationState.inProgress, .success)
-        XCTAssertNotEqual(OperationState.success, .failed(NSError(domain: "x", code: 0)))
+        XCTAssertNotEqual(OperationState.success, .failed(OperationError(NSError(domain: "x", code: 0))))
     }
 
     func testIsFinished() {
         XCTAssertFalse(OperationState.idle.isFinished)
         XCTAssertFalse(OperationState.inProgress.isFinished)
         XCTAssertTrue(OperationState.success.isFinished)
-        XCTAssertTrue(OperationState.failed(NSError(domain: "x", code: 0)).isFinished)
+        XCTAssertTrue(OperationState.failed(OperationError(NSError(domain: "x", code: 0))).isFinished)
+    }
+
+    func testOperationErrorPreservesDescription() {
+        struct MyError: Error, CustomStringConvertible {
+            var description: String { "my-detail" }
+        }
+        let wrapped = OperationError(MyError())
+        XCTAssertEqual(wrapped.description, "my-detail")
+        XCTAssertTrue(wrapped.underlyingTypeName.contains("MyError"))
     }
 }
 
@@ -220,7 +229,9 @@ final class OperationExecutorTests: XCTestCase {
 
     @available(iOS 18.0, *)
     func testWaitThrowsWhenOperationFails() async {
-        struct Boom: Error {}
+        struct Boom: Error, CustomStringConvertible {
+            var description: String { "boom-detail" }
+        }
         let executor = OperationExecutor()
         let id: OperationID = "wait.fail"
 
@@ -229,8 +240,9 @@ final class OperationExecutorTests: XCTestCase {
         do {
             try await executor.wait(id: id)
             XCTFail("expected throw")
-        } catch is Boom {
-            // expected
+        } catch let error as OperationError {
+            XCTAssertEqual(error.description, "boom-detail")
+            XCTAssertTrue(error.underlyingTypeName.contains("Boom"))
         } catch {
             XCTFail("unexpected error: \(error)")
         }

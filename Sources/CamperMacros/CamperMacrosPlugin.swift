@@ -21,6 +21,7 @@ struct CamperMacrosPlugin: CompilerPlugin {
         Passed.self,
         Origin.self,
         AutoMockable.self,
+        MockName.self,
         MemberwiseInit.self,
     ]
 }

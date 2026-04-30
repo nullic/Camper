@@ -102,15 +102,32 @@ public macro Origin(_ path: String) = #externalMacro(module: "CamperMacros", typ
 ///
 /// ### Known limitations
 /// - Generated member names embed each parameter's label and type, so they are
-///   long and hard to predict. Overloaded methods rely on this scheme to avoid
-///   collisions; there is currently no way to give a method a stable short name.
+///   long and hard to predict. Use `@MockName("...")` on a method to override
+///   the auto-generated prefix when the inferred name is too long or collides.
 /// - `@MainActor` and complex async/throws combinations are not yet covered by
 ///   macro-level tests; treat them as unverified until you exercise them in your
 ///   own test suite.
 @attached(peer, names: suffixed(Mock))
 public macro AutoMockable() = #externalMacro(module: "CamperMacros", type: "AutoMockable")
 
-public protocol InjectorOutputs {}
+/// Overrides the prefix used for the generated mock members of one method
+/// inside an `@AutoMockable` protocol.
+///
+/// By default `@AutoMockable` builds a unique prefix from the method name and
+/// each parameter's label/type, which can be long and overload-sensitive.
+/// `@MockName("login")` makes the generated members use `login` as the prefix:
+/// `loginCallsCount`, `loginReceivedArguments`, `loginClosure`, etc.
+///
+/// The override is applied verbatim — collisions between two methods with the
+/// same `@MockName` will produce a duplicate-symbol error at compile time.
+///
+///     @AutoMockable
+///     protocol AuthRepository {
+///         @MockName("login")
+///         func login(email: String, password: String) async throws
+///     }
+@attached(peer)
+public macro MockName(_ name: String) = #externalMacro(module: "CamperMacros", type: "MockName")
 
 public enum DependencyMode {
     /// The dependency is passed explicitly as an `init` parameter and stored in `_ExplicitDependencies`,

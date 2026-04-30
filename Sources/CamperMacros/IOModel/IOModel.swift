@@ -3,6 +3,23 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
+// TODO(@IOModel): known limitations to revisit post-1.0.
+//
+// 1. The generated `init(input:context:)` emits `case .ignore: break` for
+//    every `@Relationship` property. For non-optional collection relationships
+//    (`var tags: [Tag]`) this leaves the stored property uninitialized when
+//    the snapshot says `.ignore`, producing a Swift compile error. Workaround:
+//    declare such relationships as optional (`var tags: [Tag]?`). Proper fix
+//    is to either default `.ignore` to `[]` for arrays, or remove `.ignore`
+//    from the relationship enum when the property cannot tolerate being
+//    skipped during init.
+//
+// 2. `update(input:)` references `context = modelContext` only when the class
+//    has both `@Model` and at least one `@Relationship`. Applying `@IOModel`
+//    to a non-`@Model` class with `@Relationship` properties would generate
+//    code that references an undeclared `context`. SwiftData rejects such
+//    classes upstream, but a diagnostic from this macro would be friendlier.
+
 public enum IOModel {
     // MARK: - Insert/Unique funcs
 
