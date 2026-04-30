@@ -12,6 +12,10 @@ public final class LazyAtomic<Value> {
 
     public init() {}
 
+    public init(wrappedValue: @autoclosure @escaping () -> Value) {
+        self.initializer = wrappedValue
+    }
+
     public var wrappedValue: Value {
         get {
             lock.lock()

@@ -1,6 +1,7 @@
 import Foundation
+import os
 import OSLog
-import SwiftyBeaver
+@preconcurrency import SwiftyBeaver
 import ZIPFoundation
 
 public protocol Logger {
@@ -52,20 +53,18 @@ public extension Logger where Self: RawRepresentable {
 }
 
 public extension Logger {
-    private var needWriteLog: Bool {
-        LoggerConfigurator.useEnvironmentVariables == false || ProcessInfo.processInfo.environment["\(category)_LOGS"] != nil
-    }
-
     private func log(_ level: LogLevel, _ message: String, file: String, function: String, line: Int) {
         let sbLevel = level.swiftyBeaver
-        guard needWriteLog, LoggerConfigurator.minimumLogLevel.rawValue <= sbLevel.rawValue else { return }
+        let config = LoggerConfigurator.snapshot
+        let envOK = !config.useEnvironmentVariables || ProcessInfo.processInfo.environment["\(category)_LOGS"] != nil
+        guard envOK, config.minimumLogLevel.rawValue <= sbLevel.rawValue else { return }
 
         let location = "\((file as NSString).lastPathComponent):\(line) -- \(function)"
-        LoggerConfigurator.logger.custom(level: sbLevel, message: "[\(category)][\(location)]: \(message)")
+        SwiftyBeaver.custom(level: sbLevel, message: "[\(category)][\(location)]: \(message)")
         os.Logger(subsystem: subsystem, category: category).log(level: level.osLogType, "[\(location)]: \(message)")
 
         if sbLevel.rawValue >= SwiftyBeaver.Level.error.rawValue {
-            LoggerConfigurator.onError?(message)
+            config.onError?(message)
         }
     }
 
@@ -100,26 +99,37 @@ public extension Logger {
 
 // MARK: -
 
-public actor LoggerConfigurator {
-    fileprivate static let logger = SwiftyBeaver.self
-    fileprivate nonisolated(unsafe) static var useEnvironmentVariables: Bool = false
-    fileprivate nonisolated(unsafe) static var writeLogFile: Bool = false
-    fileprivate nonisolated(unsafe) static var minimumLogLevel: SwiftyBeaver.Level = .debug
-    fileprivate nonisolated(unsafe) static var onError: (@Sendable (String) -> Void)?
+public enum LoggerConfigurator {
+    fileprivate struct State: Sendable {
+        var useEnvironmentVariables: Bool = false
+        var writeLogFile: Bool = false
+        var minimumLogLevel: SwiftyBeaver.Level = .debug
+        var onError: (@Sendable (String) -> Void)?
+    }
+
+    private static let stateLock = OSAllocatedUnfairLock<State>(initialState: State())
+
+    fileprivate static var snapshot: State { stateLock.withLock { $0 } }
 
     public static let logsFolder: URL = {
         let folder = NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true).first!
         return URL(fileURLWithPath: folder).appendingPathComponent("logs")
     }()
 
-    public static func configure(useEnvironmentVariables: Bool = false, writeLogFile: Bool = false, minimumLogLevel: SwiftyBeaver.Level = .debug, onError: (@Sendable (String) -> Void)? = nil) {
-        LoggerConfigurator.useEnvironmentVariables = useEnvironmentVariables
-        LoggerConfigurator.writeLogFile = writeLogFile
-        LoggerConfigurator.minimumLogLevel = minimumLogLevel
-        LoggerConfigurator.onError = onError
+    public static func configure(
+        useEnvironmentVariables: Bool = false,
+        writeLogFile: Bool = false,
+        minimumLogLevel: SwiftyBeaver.Level = .debug,
+        onError: (@Sendable (String) -> Void)? = nil
+    ) {
+        stateLock.withLock {
+            $0.useEnvironmentVariables = useEnvironmentVariables
+            $0.writeLogFile = writeLogFile
+            $0.minimumLogLevel = minimumLogLevel
+            $0.onError = onError
+        }
 
-        logger.removeAllDestinations()
-
+        SwiftyBeaver.removeAllDestinations()
         if writeLogFile {
             addFileDestination()
         }
@@ -128,29 +138,31 @@ public actor LoggerConfigurator {
     private static func addFileDestination() {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         let date = formatter.string(from: Date())
+        let unique = String(UUID().uuidString.prefix(8))
 
-        let url = LoggerConfigurator.logsFolder.appendingPathComponent("\(date).log")
-
+        let url = logsFolder.appendingPathComponent("\(date)-\(unique).log")
         let destination = FileDestination(logFileURL: url)
-        destination.logFileMaxSize = (15 * 1024 * 1024)
-        logger.addDestination(destination)
+        destination.logFileMaxSize = 15 * 1024 * 1024
+        SwiftyBeaver.addDestination(destination)
 
         debugPrint("Logs output: \(url.path)")
     }
 
     public static func clearLogs() throws {
+        flush()
+
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: logsFolder.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             return
         }
 
-        logger.removeAllDestinations()
+        SwiftyBeaver.removeAllDestinations()
         try FileManager.default.removeItem(atPath: logsFolder.path)
 
-        if LoggerConfigurator.writeLogFile {
+        if snapshot.writeLogFile {
             addFileDestination()
         }
     }
@@ -172,6 +184,6 @@ public actor LoggerConfigurator {
     }
 
     public static func flush() {
-        _ = logger.flush(secondTimeout: 10)
+        _ = SwiftyBeaver.flush(secondTimeout: 10)
     }
 }

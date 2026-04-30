@@ -299,10 +299,10 @@ enum Status {
 
 ### `@LoggersCollection`
 
-Generates static `Logger` properties from a nested `Categories` enum.
+Generates static `Logger` properties from a nested `Categories` enum. The subsystem is passed as a positional argument; if omitted, it's derived from the enum name with `Loggers` / `LoggersCollection` suffixes stripped.
 
 ```swift
-@LoggersCollection(subsystem: "com.example.app")
+@LoggersCollection("com.example.app")
 enum AppLoggers {
     enum Categories {
         case network
@@ -310,36 +310,25 @@ enum AppLoggers {
         case ui
     }
 }
-// Generates: static let network = Logger(subsystem: "com.example.app", category: "network")
-// etc.
+// Generates: static let network = Logger(subsystem: "com.example.app", category: "Network")
+// etc. (category names are capitalized)
 ```
 
 ---
 
 ## Property Wrappers
 
-### `@Clamped`
-
-Clamps a value to a closed range on every assignment.
-
-```swift
-@Clamped(0...100) var volume: Int = 50
-volume = 150  // volume == 100
-```
-
-`@ClampedNil` is the optional variant that allows `nil`.
-
 ### `@LazyAtomic`
 
 Thread-safe lazy initialization using `NSLock`. The value is computed once on first access.
 
 ```swift
-@LazyAtomic var heavyObject = { HeavyObject() }
+@LazyAtomic var heavyObject = HeavyObject()
 ```
 
 ### `@UserDefault`
 
-Syncs a value with `UserDefaults`. Supports custom `ValueTransformer` and publishes changes via `CurrentValueSubject`.
+Syncs a value with `UserDefaults`. Supports a custom `ValueTransformer` and publishes changes via a `CurrentValueSubject` exposed as `projectedValue`.
 
 ```swift
 @UserDefault("user.onboarded", store: .standard) var hasOnboarded: Bool = false
@@ -348,20 +337,20 @@ Syncs a value with `UserDefaults`. Supports custom `ValueTransformer` and publis
 `@CodableUserDefault` stores `Codable` types as JSON.
 
 ```swift
-@CodableUserDefault("user.preferences") var preferences: UserPreferences?
+@CodableUserDefault("user.preferences", store: .standard) var preferences: UserPreferences? = nil
 ```
 
 ---
 
 ## Logging
 
-`CamperLogger` wraps both SwiftyBeaver and OSLog. Configure once at app startup:
+`Camper.Logger` is a protocol-based wrapper over both SwiftyBeaver and OSLog. Configure once at app startup:
 
 ```swift
-Logger.configure { config in
-    config.minimumLevel = .debug
-    config.fileLoggingEnabled = true
-}
+LoggerConfigurator.configure(
+    writeLogFile: true,
+    minimumLogLevel: .debug
+)
 ```
 
 ---

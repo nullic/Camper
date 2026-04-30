@@ -5,3 +5,5 @@ import SwiftData
 checkColors()
 checkLoggers()
 checkDependency()
+checkAutoMockable()
+checkMemberwiseInit()

@@ -524,9 +524,12 @@ public enum IOModel {
             }
 
             try FunctionDeclSyntax("func notify()") {
-                "guard let object else { return }"
-                for varDecl in variables where !varDecl.isUnique {
-                    "object._$observationRegistrar.withMutation(of: object, keyPath: \\.\(raw: varDecl.identifier)) {}"
+                let observable = variables.filter { !$0.isUnique }
+                if !observable.isEmpty {
+                    "guard let object else { return }"
+                    for varDecl in observable {
+                        "object._$observationRegistrar.withMutation(of: object, keyPath: \\.\(raw: varDecl.identifier)) {}"
+                    }
                 }
             }
         }

@@ -25,6 +25,10 @@ public final class UserDefault<Value>: @unchecked Sendable {
         self.publisher = CurrentValueSubject<Value, Never>(wrappedValue)
     }
 
+    public convenience init(wrappedValue: @autoclosure @escaping () -> Value, _ key: String, store: UserDefaults = .standard, transformer: ValueTransformer? = nil) {
+        self.init(key: key, container: store, transformer: transformer, defaultValue: wrappedValue())
+    }
+
     public var wrappedValue: Value {
         get {
             if let transformer {
@@ -69,6 +73,10 @@ public final class CodableUserDefault<Value>: @unchecked Sendable where Value: C
         self.container = container
         self.defaultValue = defaultValue
         self.publisher = CurrentValueSubject<Value, Never>(wrappedValue)
+    }
+
+    public convenience init(wrappedValue: @autoclosure @escaping () -> Value, _ key: String, store: UserDefaults = .standard) {
+        self.init(key: key, container: store, defaultValue: wrappedValue())
     }
 
     public var wrappedValue: Value {

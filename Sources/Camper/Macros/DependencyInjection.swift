@@ -127,4 +127,5 @@ public final class WeakRef {
 
 public protocol PassedObjectsInjection: AnyObject {
     func getPassedObject<ObjectType>() -> ObjectType? where ObjectType: AnyObject
+    func setPassedObject<ObjectType>(_ object: ObjectType?) where ObjectType: AnyObject
 }

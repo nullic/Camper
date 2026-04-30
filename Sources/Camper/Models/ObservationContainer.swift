@@ -1,7 +1,6 @@
 import Foundation
 
 public actor ObservationContainer<Value> {
-    private var notificationObserver: NSObjectProtocol?
     private var observers = NSHashTable<ObservationToken<Value>>(options: .weakMemory)
 
     public init() {}

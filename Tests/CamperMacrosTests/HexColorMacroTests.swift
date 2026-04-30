@@ -246,6 +246,85 @@ final class HexColorMacroTests: XCTestCase {
         )
     }
 
+    // MARK: - Edge cases — bit extraction
+
+    func testHexColor3DigitMixedNibbles() {
+        // "369" -> R=0x33=51, G=0x66=102, B=0x99=153 -> 0.2, 0.4, 0.6
+        assertMacroExpansion(
+            """
+            let color = #hexColor("369")
+            """,
+            expandedSource: """
+            let color = Color(red: 0.2, green: 0.4, blue: 0.6, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColor3DigitAllChannelsDistinct() {
+        // "036" -> R=0, G=0x33=51, B=0x66=102 -> 0.0, 0.2, 0.4
+        assertMacroExpansion(
+            """
+            let color = #hexColor("036")
+            """,
+            expandedSource: """
+            let color = Color(red: 0.0, green: 0.2, blue: 0.4, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColor3DigitWithHashPrefix() {
+        assertMacroExpansion(
+            """
+            let color = #hexColor("#369")
+            """,
+            expandedSource: """
+            let color = Color(red: 0.2, green: 0.4, blue: 0.6, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColor3DigitLowercase() {
+        // "606" lowercase -> R=B=0x66=102, G=0 -> 0.4, 0.0, 0.4
+        assertMacroExpansion(
+            """
+            let color = #hexColor("606")
+            """,
+            expandedSource: """
+            let color = Color(red: 0.4, green: 0.0, blue: 0.4, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColor4DigitMixedNibbles() {
+        // "39C6" -> R=0x33=51, G=0x99=153, B=0xCC=204, A=0x66=102 -> 0.2, 0.6, 0.8, 0.4
+        assertMacroExpansion(
+            """
+            let color = #hexColor("39C6")
+            """,
+            expandedSource: """
+            let color = Color(red: 0.2, green: 0.6, blue: 0.8, opacity: 0.4)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColor6DigitNonTrivial() {
+        // "33CC99" -> R=51, G=204, B=153 -> 0.2, 0.8, 0.6
+        assertMacroExpansion(
+            """
+            let color = #hexColor("33CC99")
+            """,
+            expandedSource: """
+            let color = Color(red: 0.2, green: 0.8, blue: 0.6, opacity: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
     // MARK: - Error cases
 
     func testHexColorInvalidFormat() {

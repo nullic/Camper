@@ -37,5 +37,7 @@ let package = Package(
             "CamperMacros",
             .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
         ]),
+
+        .testTarget(name: "CamperTests", dependencies: ["Camper"]),
     ]
 )

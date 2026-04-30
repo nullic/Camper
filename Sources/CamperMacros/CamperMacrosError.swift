@@ -5,8 +5,6 @@ enum CamperMacrosError: CustomStringConvertible, Error {
     case loggersCategoriesNotFound
     case ioModelIncorrectType
     case stringIncorrectType
-    case environmentValueIncorrectType
-    case environmentValueDefaultValue
     case hexColorInvalidValue
     case cssColorInvalidValue
 
@@ -29,8 +27,6 @@ enum CamperMacrosError: CustomStringConvertible, Error {
         case .loggersCategoriesNotFound: return "Must contains 'Categories' enum with at least one case value"
         case .ioModelIncorrectType: return "@IOModel can only be applied to class"
         case .stringIncorrectType: return "@StringRepresentable can only be applied to enum"
-        case .environmentValueIncorrectType: return "@EnvironmentValue can only be applied to variable"
-        case .environmentValueDefaultValue: return "@EnvironmentValue must have default value"
         case .hexColorInvalidValue: return "#hexColor accept only next formats: '#rgb' '#rgba' '#rrggbb' '#rrggbbaa' '0xrgb' '0xrgba' '0xrrggbb' '0xrrggbbaa'"
         case .cssColorInvalidValue: return "#cssColor accept only next formats: '#rgb' '#rgba' '#rrggbb' '#rrggbbaa' 'rgb(r, g, b)' 'rgba(r, g, b, a)'"
         case .injectionIncorrectType: return "@Injection can only be applied to protocol"

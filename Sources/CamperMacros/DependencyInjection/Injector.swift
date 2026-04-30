@@ -195,7 +195,7 @@ extension Injector: ExtensionMacro {
                                  conformingTo _: [SwiftSyntax.TypeSyntax],
                                  in _: some SwiftSyntaxMacros.MacroExpansionContext) throws -> [SwiftSyntax.ExtensionDeclSyntax]
     {
-        guard let classDecl = declaration.as(ClassDeclSyntax.self) else { throw CamperMacrosError.ioModelIncorrectType }
+        guard let classDecl = declaration.as(ClassDeclSyntax.self) else { throw CamperMacrosError.injectorIncorrectType }
         guard
             classDecl.attributes.injectorArguments?.boolValue(label: "dependenciesMock") != false ||
             classDecl.attributes.injectorArguments?.boolValue(label: "mock") != false

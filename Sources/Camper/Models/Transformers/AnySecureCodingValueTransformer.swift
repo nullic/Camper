@@ -1,7 +1,7 @@
 import Foundation
 
 public final class AnySecureCodingValueTransformer<ValueType: NSSecureCoding & NSObject>: ValueTransformer {
-    static var name: NSValueTransformerName { NSValueTransformerName(rawValue: "AnySecureCodingValueTransformer<\(ValueType.self)>") }
+    public static var name: NSValueTransformerName { NSValueTransformerName(rawValue: "AnySecureCodingValueTransformer<\(ValueType.self)>") }
 
     public static func register() {
         ValueTransformer.setValueTransformer(Self(), forName: name)
@@ -12,16 +12,16 @@ public final class AnySecureCodingValueTransformer<ValueType: NSSecureCoding & N
     }
 
     override public class func transformedValueClass() -> AnyClass {
-        return ValueType.self as! AnyClass.Type
+        return ValueType.self
     }
 
     override public func transformedValue(_ value: Any?) -> Any? {
         guard let value else { return nil }
-        return try! NSKeyedArchiver.archivedData(withRootObject: value, requiringSecureCoding: true)
+        return try? NSKeyedArchiver.archivedData(withRootObject: value, requiringSecureCoding: true)
     }
 
     override public func reverseTransformedValue(_ value: Any?) -> Any? {
         guard let data = value as? Data else { return nil }
-        return try! NSKeyedUnarchiver.unarchivedObject(ofClass: ValueType.self, from: data)
+        return try? NSKeyedUnarchiver.unarchivedObject(ofClass: ValueType.self, from: data)
     }
 }
