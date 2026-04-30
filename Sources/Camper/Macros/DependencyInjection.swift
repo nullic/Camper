@@ -99,6 +99,14 @@ public macro Origin(_ path: String) = #externalMacro(module: "CamperMacros", typ
 /// }
 /// // Generates AuthRepositoryMock with loginEmailStringPasswordString* tracking properties
 /// ```
+///
+/// ### Known limitations
+/// - Generated member names embed each parameter's label and type, so they are
+///   long and hard to predict. Overloaded methods rely on this scheme to avoid
+///   collisions; there is currently no way to give a method a stable short name.
+/// - `@MainActor` and complex async/throws combinations are not yet covered by
+///   macro-level tests; treat them as unverified until you exercise them in your
+///   own test suite.
 @attached(peer, names: suffixed(Mock))
 public macro AutoMockable() = #externalMacro(module: "CamperMacros", type: "AutoMockable")
 

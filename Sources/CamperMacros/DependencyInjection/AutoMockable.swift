@@ -3,6 +3,30 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
+// TODO(@AutoMockable): known limitations to address before stabilizing the API.
+//
+// 1. Generated member names are long and hard to predict. For multi-param
+//    methods we get e.g. `trackEventStringPropertiesStringStringReceivedInvocations`.
+//    Consider switching to short stable names (`trackInvocations`,
+//    `trackArguments`, `trackClosure`) and rejecting overloads with a diagnostic,
+//    or letting the user opt in via `@MockName("...")`.
+//
+// 2. No disambiguation strategy for overloaded methods. Two methods with the
+//    same base name compile only because their parameter type identifiers differ.
+//    The naming scheme is the only thing keeping them apart, and the user has
+//    no way to query "the foo overload" without spelling the full mangled name.
+//
+// 3. Test coverage for non-trivial method shapes is missing. Specifically:
+//    `@MainActor` methods, `async throws` combinations, methods returning
+//    closures, generic methods, and `@Sendable`-annotated parameter closures.
+//    The integration target in CamperClient covers basic shapes; macro-level
+//    `assertMacroExpansion` tests for these have not been written yet.
+//
+// 4. `typeIdentifier` does not unwrap generics. `Result<String, Error>` becomes
+//    `ResultStringError` (concatenated). For `Array<T>` (long form) we miss the
+//    `s` suffix because only `[T]` is detected as `ArrayTypeSyntax`. Acceptable
+//    for now but worth revisiting alongside (1).
+
 public enum AutoMockable: PeerMacro {
     public static func expansion(
         of _: AttributeSyntax,
