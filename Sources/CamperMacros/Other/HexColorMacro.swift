@@ -40,6 +40,30 @@ public struct HexColorMacro: ExpressionMacro {
                 return "\(raw: lightString)"
             }
 
+        } else if node.arguments.count > 1, let argument = node.arguments.last {
+            // Two-arg `#hexColor(light, dark)` — adaptive SwiftUI
+            // Color that uses the right Apple framework on each
+            // host. Emits `#if canImport(UIKit) … #elseif
+            // canImport(AppKit) …` inside an immediately-invoked
+            // closure so the macro still expands to a single
+            // expression.
+            let (red2, green2, blue2, opacity2) = try scan(argument: argument, macroName: macroName)
+            let uiLight = "UIColor(red: \(red), green: \(green), blue: \(blue), alpha: \(opacity))"
+            let uiDark = "UIColor(red: \(red2), green: \(green2), blue: \(blue2), alpha: \(opacity2))"
+            let nsLight = "NSColor(red: \(red), green: \(green), blue: \(blue), alpha: \(opacity))"
+            let nsDark = "NSColor(red: \(red2), green: \(green2), blue: \(blue2), alpha: \(opacity2))"
+            let plain = "Color(red: \(red), green: \(green), blue: \(blue), opacity: \(opacity))"
+            return """
+            {
+            #if canImport(UIKit)
+            return Color(uiColor: UIColor { $0.userInterfaceStyle == .light ? \(raw: uiLight) : \(raw: uiDark) })
+            #elseif canImport(AppKit)
+            return Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? \(raw: nsDark) : \(raw: nsLight) })
+            #else
+            return \(raw: plain)
+            #endif
+            }()
+            """
         } else {
             return "Color(red: \(raw: red), green: \(raw: green), blue: \(raw: blue), opacity: \(raw: opacity))"
         }

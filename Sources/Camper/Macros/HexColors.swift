@@ -16,6 +16,22 @@ public macro hexColor(_ stringLiteral: StringLiteralType) -> Color = #externalMa
 @freestanding(expression)
 public macro hexColor(_ hexadecimalIntegerLiteral: IntegerLiteralType) -> Color = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
 
+/// Creates a dynamic, light/dark-aware `Color` from a pair of hex
+/// string literals. Bridges across the iOS / macOS platform split:
+/// expands to a `UIColor`-backed adaptive Color on UIKit hosts and
+/// an `NSColor`-backed adaptive Color on AppKit hosts, so palette
+/// code can stay platform-agnostic.
+///
+///     let text = #hexColor("2A2118", "E8E0D2")
+@freestanding(expression)
+public macro hexColor(_ light: StringLiteralType, _ dark: StringLiteralType) -> Color = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
+
+/// Same as above, but accepts hex integer literals.
+///
+///     let text = #hexColor(0x2A2118, 0xE8E0D2)
+@freestanding(expression)
+public macro hexColor(_ hexLight: IntegerLiteralType, _ hexDark: IntegerLiteralType) -> Color = #externalMacro(module: "CamperMacros", type: "HexColorMacro")
+
 /// Creates a `Color` from a CSS-style string literal.
 ///
 /// Supports hex (`#FFF`, `#FFFF`, `#FFFFFF`, `#FFFFFFFF`), `rgb(r, g, b)`,
