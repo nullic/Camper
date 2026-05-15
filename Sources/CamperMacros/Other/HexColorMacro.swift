@@ -28,7 +28,14 @@ public struct HexColorMacro: ExpressionMacro {
             if node.arguments.count > 1, let argument = node.arguments.last {
                 let (red2, green2, blue2, opacity2) = try scan(argument: argument, macroName: macroName)
                 let darkString = "NSColor(red: \(red2), green: \(green2), blue: \(blue2), alpha: \(opacity2))"
-                return " NSColor(name: nil) { $0.name == .aqua ? \(raw: lightString) : \(raw: darkString) }"
+                // `bestMatch(from:)` collapses every NSAppearance.Name
+                // (`.aqua`, `.darkAqua`, `.vibrantLight`, `.vibrantDark`,
+                // their high-contrast variants) onto the closest of
+                // the two base appearances. The naive `name == .aqua`
+                // check picks dark for `.vibrantLight` — which is
+                // what popovers, sidebars, and sheets use, so the
+                // light variant never appeared there.
+                return "NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? \(raw: darkString) : \(raw: lightString) }"
             } else {
                 return "\(raw: lightString)"
             }
