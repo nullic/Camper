@@ -163,8 +163,56 @@ final class HexColorMacroTests: XCTestCase {
             """,
             expandedSource: """
             let color = NSColor(name: nil) {
-                $0.name == .aqua ? NSColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : NSColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0) : NSColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0)
             }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColorLightDarkStrings() {
+        assertMacroExpansion(
+            """
+            let color = #hexColor("FF0000", "0000FF")
+            """,
+            expandedSource: """
+            let color = {
+                #if canImport(UIKit)
+                return Color(uiColor: UIColor {
+                        $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                    })
+                #elseif canImport(AppKit)
+                return Color(nsColor: NSColor(name: nil) {
+                        $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0) : NSColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0)
+                    })
+                #else
+                return Color(red: 1.0, green: 0.0, blue: 0.0, opacity: 1.0)
+                #endif
+            }()
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testHexColorLightDarkIntegers() {
+        assertMacroExpansion(
+            """
+            let color = #hexColor(0xFF0000, 0x0000FF)
+            """,
+            expandedSource: """
+            let color = {
+                #if canImport(UIKit)
+                return Color(uiColor: UIColor {
+                        $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                    })
+                #elseif canImport(AppKit)
+                return Color(nsColor: NSColor(name: nil) {
+                        $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0) : NSColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0)
+                    })
+                #else
+                return Color(red: 1.0, green: 0.0, blue: 0.0, opacity: 1.0)
+                #endif
+            }()
             """,
             macros: testMacros
         )
@@ -240,6 +288,32 @@ final class HexColorMacroTests: XCTestCase {
             expandedSource: """
             let color = UIColor {
                 $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+            }
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testCssNSColorSingle() {
+        assertMacroExpansion(
+            """
+            let color = #cssNSColor("rgb(255, 0, 0)")
+            """,
+            expandedSource: """
+            let color = NSColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0)
+            """,
+            macros: testMacros
+        )
+    }
+
+    func testCssNSColorLightDarkMixed() {
+        assertMacroExpansion(
+            """
+            let color = #cssNSColor("#FFFFFF", "rgb(0, 0, 0)")
+            """,
+            expandedSource: """
+            let color = NSColor(name: nil) {
+                $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0) : NSColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0)
             }
             """,
             macros: testMacros

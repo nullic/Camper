@@ -21,6 +21,22 @@ final class LocalizedMacroTests: XCTestCase {
         )
     }
 
+    func testLocalizedWithExplicitMainBundle() {
+        // `.main` must round-trip as the literal `.main` enum case so
+        // that Xcode's `SWIFT_EMIT_LOC_STRINGS` extractor recognises
+        // the bundle (anything wrapped in `.atURL(...)` gets flagged
+        // as stale).
+        assertMacroExpansion(
+            """
+            let text = #localized("hello_world", .main)
+            """,
+            expandedSource: """
+            let text = LocalizedStringResource("hello_world", bundle: .main)
+            """,
+            macros: testMacros
+        )
+    }
+
     func testLocalizedWithMemberBundle() {
         assertMacroExpansion(
             """
