@@ -59,6 +59,32 @@ public final class UserDefault<Value>: @unchecked Sendable {
     }
 
     public var projectedValue: AnyPublisher<Value, Never> { publisher.eraseToAnyPublisher() }
+
+    /// SwiftUI `ObservableObject` integration via the private
+    /// `_enclosingInstance` static-subscript pattern (the same
+    /// mechanism `@Published` uses). When the host class conforms
+    /// to `ObservableObject`, Swift resolves every read/write
+    /// through this subscript instead of `wrappedValue`, so every
+    /// setter automatically fires `objectWillChange.send()` and
+    /// the host's `@ObservedObject` / `@StateObject` listeners
+    /// re-render.
+    ///
+    /// Non-`ObservableObject` hosts (structs, plain classes)
+    /// fall back to the regular `wrappedValue` accessors —
+    /// no behavioural change for legacy call sites.
+    public static subscript<EnclosingSelf: ObservableObject>(
+        _enclosingInstance object: EnclosingSelf,
+        wrapped _: ReferenceWritableKeyPath<EnclosingSelf, Value>,
+        storage storageKeyPath: ReferenceWritableKeyPath<EnclosingSelf, UserDefault>
+    ) -> Value where EnclosingSelf.ObjectWillChangePublisher == ObservableObjectPublisher {
+        get {
+            object[keyPath: storageKeyPath].wrappedValue
+        }
+        set {
+            object.objectWillChange.send()
+            object[keyPath: storageKeyPath].wrappedValue = newValue
+        }
+    }
 }
 
 @propertyWrapper
@@ -105,4 +131,24 @@ public final class CodableUserDefault<Value>: @unchecked Sendable where Value: C
     }
 
     public var projectedValue: AnyPublisher<Value, Never> { publisher.eraseToAnyPublisher() }
+
+    /// SwiftUI `ObservableObject` integration — see the matching
+    /// subscript on `UserDefault` for the rationale. When the
+    /// host class conforms to `ObservableObject`, every setter
+    /// automatically fires `objectWillChange.send()`. Legacy
+    /// non-`ObservableObject` call sites continue to use
+    /// `wrappedValue` directly.
+    public static subscript<EnclosingSelf: ObservableObject>(
+        _enclosingInstance object: EnclosingSelf,
+        wrapped _: ReferenceWritableKeyPath<EnclosingSelf, Value>,
+        storage storageKeyPath: ReferenceWritableKeyPath<EnclosingSelf, CodableUserDefault>
+    ) -> Value where EnclosingSelf.ObjectWillChangePublisher == ObservableObjectPublisher {
+        get {
+            object[keyPath: storageKeyPath].wrappedValue
+        }
+        set {
+            object.objectWillChange.send()
+            object[keyPath: storageKeyPath].wrappedValue = newValue
+        }
+    }
 }

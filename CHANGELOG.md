@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `@UserDefault` and `@CodableUserDefault` now integrate with SwiftUI's `ObservableObject` via the `_enclosingInstance` static-subscript pattern (same mechanism `@Published` uses). When the host class conforms to `ObservableObject`, every setter automatically fires `objectWillChange.send()`, so `@ObservedObject` / `@StateObject` listeners re-render. Non-`ObservableObject` hosts (structs, plain classes) keep using `wrappedValue` directly — no behaviour change for legacy call sites.
 - `Camper.LogLevel` enum so callers no longer need to import SwiftyBeaver to set `minimumLogLevel`.
 - `OperationError` — a `Sendable`-conforming wrapper for the error stored in `OperationState.failed`.
 - `@MockName("...")` macro for overriding the auto-generated unique-name prefix in `@AutoMockable` mocks.
