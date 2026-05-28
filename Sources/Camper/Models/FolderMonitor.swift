@@ -1,23 +1,29 @@
 import Foundation
 import Observation
 
-public struct FilePathInfo: Sendable {
+public struct FilePathInfo: Sendable, Hashable, Identifiable {
     public let isFolder: Bool
     public let name: String
     public let url: URL
     public let size: Int64
-    public let date: Date
+    public let modificationDate: Date
+    public let creationDate: Date
+
+    public var id: Self { self }
 
     public init(url: URL) {
         let attrs: [FileAttributeKey: Any] = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
         let type = attrs[FileAttributeKey.type] as? String ?? ""
         let modificationDate = attrs[FileAttributeKey.modificationDate] as? Date
+        let creationDate = attrs[FileAttributeKey.creationDate] as? Date
+        let fallback = Date(timeIntervalSince1970: 0)
 
         self.url = url
         self.name = url.lastPathComponent
         self.isFolder = FileAttributeType(rawValue: type) == .typeDirectory
         self.size = (attrs[FileAttributeKey.size] as? NSNumber)?.int64Value ?? 0
-        self.date = modificationDate ?? attrs[FileAttributeKey.creationDate] as? Date ?? Date(timeIntervalSince1970: 0)
+        self.modificationDate = modificationDate ?? creationDate ?? fallback
+        self.creationDate = creationDate ?? modificationDate ?? fallback
     }
 }
 
@@ -92,7 +98,14 @@ public final class FolderMonitor: @unchecked Sendable {
     private func readFolderContent() {
         var content: [FilePathInfo] = []
 
-        let contentsOfDirectory = (try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []
+        let contentsOfDirectory: [String]
+        do {
+            contentsOfDirectory = try FileManager.default.contentsOfDirectory(atPath: url.path)
+        } catch {
+            CamperLogger.fileMonitor.error("failed to read directory at \(self.url.path): \(error.localizedDescription)")
+            contentsOfDirectory = []
+        }
+
         for file in contentsOfDirectory {
             let url = url.appendingPathComponent(file)
             content.append(FilePathInfo(url: url))
