@@ -4,7 +4,62 @@ import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
 /// `@SoftCodable` — see the declaration in `Camper/Macros/SoftCodable.swift`.
-public enum SoftCodable: ExtensionMacro {
+public enum SoftCodable {
+    /// Instance stored properties (skip `static` and computed).
+    static func storedProperties(of structDecl: StructDeclSyntax) -> [VariableDeclSyntax] {
+        structDecl.memberBlock.members
+            .compactMap { $0.decl.as(VariableDeclSyntax.self) }
+            .filter { variable in
+                !variable.modifiers.contains { $0.name.text == "static" }
+                    && !variable.hasAccessorBlock
+                    && !variable.identifier.isEmpty
+            }
+    }
+}
+
+// MARK: - Public memberwise init (the implicit one is `internal`; a public type
+// needs a public one — e.g. to be a default argument elsewhere).
+
+extension SoftCodable: MemberMacro {
+    public static func expansion(
+        of _: AttributeSyntax,
+        providingMembersOf declaration: some DeclGroupSyntax,
+        conformingTo _: [TypeSyntax],
+        in _: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        guard let structDecl = declaration.as(StructDeclSyntax.self) else {
+            throw CamperMacrosError.softCodableIncorrectType
+        }
+        let stored = storedProperties(of: structDecl)
+        guard !stored.isEmpty else { return [] }
+
+        let access = structDecl.modifiers.contains { $0.name.text == "public" } ? "public " : ""
+        let params = stored.map { variable -> String in
+            let defaultClause: String
+            if let value = variable.initializerValue {
+                defaultClause = " = \(value)"
+            } else if variable.isOptional {
+                defaultClause = " = nil"
+            } else {
+                defaultClause = ""
+            }
+            return "\(variable.identifier): \(variable.rawIdentifierType)\(defaultClause)"
+        }.joined(separator: ", ")
+        let assignments = stored.map { "self.\($0.identifier) = \($0.identifier)" }
+            .joined(separator: "\n        ")
+
+        let initDecl: DeclSyntax = """
+        \(raw: access)init(\(raw: params)) {
+            \(raw: assignments)
+        }
+        """
+        return [initDecl]
+    }
+}
+
+// MARK: - Codable (snake_case keys, soft-fail decode)
+
+extension SoftCodable: ExtensionMacro {
     public static func expansion(
         of _: AttributeSyntax,
         attachedTo declaration: some DeclGroupSyntax,

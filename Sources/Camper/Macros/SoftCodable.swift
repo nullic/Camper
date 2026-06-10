@@ -24,6 +24,7 @@
 /// }
 /// // Author writes no `: Codable`, no CodingKeys, no init(from:)/encode(to:).
 /// ```
+@attached(member, names: named(init))
 @attached(extension, conformances: Codable, names: named(init(from:)), named(encode(to:)), named(CodingKeys))
 public macro SoftCodable() = #externalMacro(module: "CamperMacros", type: "SoftCodable")
 

@@ -142,7 +142,10 @@ extension VariableDeclSyntax {
     var initializerValue: String? {
         for binding in bindings {
             guard let pattern = binding.children(viewMode: .all).first(type: InitializerClauseSyntax.self) else { continue }
-            return pattern.value.description
+            // `trimmedDescription` drops surrounding trivia — notably a trailing
+            // line comment (`var x = "" // note`), which would otherwise be
+            // captured into the default value and corrupt generated code.
+            return pattern.value.trimmedDescription
         }
         return nil
     }
