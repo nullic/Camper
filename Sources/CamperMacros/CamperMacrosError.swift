@@ -20,6 +20,7 @@ enum CamperMacrosError: CustomStringConvertible, Error {
 
     case autoMockableIncorrectType
     case memberwiseInitIncorrectType
+    case softCodableIncorrectType
 
     var description: String {
         switch self {
@@ -40,6 +41,7 @@ enum CamperMacrosError: CustomStringConvertible, Error {
         case .passedIncorrectType: return "@Passed can only be applied to 'optional' variables"
         case .autoMockableIncorrectType: return "@AutoMockable can only be applied to protocol"
         case .memberwiseInitIncorrectType: return "@MemberwiseInit can only be applied to struct"
+        case .softCodableIncorrectType: return "@SoftCodable can only be applied to struct"
         }
     }
 }

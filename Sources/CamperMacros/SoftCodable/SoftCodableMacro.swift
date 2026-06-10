@@ -1,0 +1,93 @@
+import SwiftCompilerPlugin
+import SwiftSyntax
+import SwiftSyntaxBuilder
+import SwiftSyntaxMacros
+
+/// `@SoftCodable` — see the declaration in `Camper/Macros/SoftCodable.swift`.
+public enum SoftCodable: ExtensionMacro {
+    public static func expansion(
+        of _: AttributeSyntax,
+        attachedTo declaration: some DeclGroupSyntax,
+        providingExtensionsOf type: some TypeSyntaxProtocol,
+        conformingTo _: [TypeSyntax],
+        in _: some MacroExpansionContext
+    ) throws -> [ExtensionDeclSyntax] {
+        guard let structDecl = declaration.as(StructDeclSyntax.self) else {
+            throw CamperMacrosError.softCodableIncorrectType
+        }
+
+        // Instance stored properties only (skip `static` and computed).
+        let stored = structDecl.memberBlock.members
+            .compactMap { $0.decl.as(VariableDeclSyntax.self) }
+            .filter { variable in
+                !variable.modifiers.contains { $0.name.text == "static" }
+                    && !variable.hasAccessorBlock
+                    && !variable.identifier.isEmpty
+            }
+
+        let coded = stored.filter { !$0.attributes.contains(named: "SoftIgnore") }
+        let ignored = stored.filter { $0.attributes.contains(named: "SoftIgnore") }
+
+        let keyCases = coded.map { variable -> String in
+            let name = variable.identifier
+            let key = name.snakeCased
+            return key == name ? "case \(name)" : "case \(name) = \"\(key)\""
+        }
+
+        var decodeLines: [String] = coded.map { variable in
+            let name = variable.identifier
+            if variable.isOptional {
+                return "self.\(name) = try container.decodeIfPresent(\(variable.unwrappedIdentifierType).self, forKey: .\(name))"
+            } else if let defaultValue = variable.initializerValue {
+                return "self.\(name) = try container.decodeIfPresent(\(variable.rawIdentifierType).self, forKey: .\(name)) ?? \(defaultValue)"
+            } else {
+                return "self.\(name) = try container.decode(\(variable.rawIdentifierType).self, forKey: .\(name))"
+            }
+        }
+        for variable in ignored {
+            if let defaultValue = variable.initializerValue {
+                decodeLines.append("self.\(variable.identifier) = \(defaultValue)")
+            }
+        }
+
+        let encodeLines = coded.map { variable -> String in
+            let name = variable.identifier
+            let verb = variable.isOptional ? "encodeIfPresent" : "encode"
+            return "try container.\(verb)(self.\(name), forKey: .\(name))"
+        }
+
+        let access = structDecl.modifiers.contains { $0.name.text == "public" } ? "public " : ""
+
+        let extensionSource: DeclSyntax = """
+        extension \(raw: type.trimmedDescription): Codable {
+            enum CodingKeys: String, CodingKey {
+                \(raw: keyCases.joined(separator: "\n        "))
+            }
+
+            \(raw: access)init(from decoder: any Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                \(raw: decodeLines.joined(separator: "\n        "))
+            }
+
+            \(raw: access)func encode(to encoder: any Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                \(raw: encodeLines.joined(separator: "\n        "))
+            }
+        }
+        """
+
+        guard let extensionDecl = extensionSource.as(ExtensionDeclSyntax.self) else { return [] }
+        return [extensionDecl]
+    }
+}
+
+/// `@SoftIgnore` — a no-op marker read by `@SoftCodable`.
+public enum SoftIgnore: PeerMacro {
+    public static func expansion(
+        of _: AttributeSyntax,
+        providingPeersOf _: some DeclSyntaxProtocol,
+        in _: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        []
+    }
+}
