@@ -175,10 +175,12 @@ extension Injector: MemberMacro {
             }
             for variable in subscripts {
                 let typeString = variable.rawIdentifierType
-                let modifier = variable.readPrivacyModifier
+                // @dynamicMemberLookup requires the subscript to be at least as
+                // accessible as its enclosing type, so it inherits the type's
+                // access rather than the (often more restricted) dependency's.
                 if !typeString.isEmpty {
                     result.append(DeclSyntax(
-                        "\(raw: modifier) subscript<T>(dynamicMember keyPath: KeyPath<\(raw: typeString), T>) -> T { \(raw: variable.identifier)[keyPath: keyPath] }"
+                        "\(raw: privacyModifier) subscript<T>(dynamicMember keyPath: KeyPath<\(raw: typeString), T>) -> T { \(raw: variable.identifier)[keyPath: keyPath] }"
                     ))
                 }
             }
