@@ -12,7 +12,11 @@ let package = Package(
         .executable(name: "CamperClient", targets: ["CamperClient"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-syntax.git", from: "602.0.0"),
+        // Widened from `602.0.0` to span 600…602 so Camper can co-resolve
+        // with deps that pin swift-syntax 600 (e.g. mlx-swift-lm via
+        // mlx-audio-swift). SPM picks the highest version satisfying the
+        // whole graph — 602 alone, 600 when a 600-pinned dep is present.
+        .package(url: "https://github.com/apple/swift-syntax.git", "600.0.0" ..< "603.0.0"),
         .package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", from: "2.0.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.19"),
     ],
