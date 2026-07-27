@@ -158,11 +158,12 @@ extension VariableDeclSyntax {
         return initializerValue
     }
 
-    var isPublic: Bool { modifiers.contains(where: { $0.name.text == "public" }) }
-    var isPackage: Bool { modifiers.contains(where: { $0.name.text == "package" }) }
-    var isFileprivate: Bool { modifiers.contains(where: { $0.name.text == "fileprivate" }) }
-    var isPrivate: Bool { modifiers.contains(where: { $0.name.text == "private" && $0.detail == nil }) }
-    var isPrivateOrFileprivate: Bool { modifiers.contains(where: { ($0.name.text == "private" || $0.name.text == "fileprivate") && $0.detail == nil }) }
+    var isPublic: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.public) }) }
+    var isPackage: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.package) }) }
+    var isFileprivate: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.fileprivate) }) }
+    var isPrivate: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.private) && $0.detail == nil }) }
+    var isPrivateOrFileprivate: Bool { modifiers.contains(where: { ($0.name.tokenKind == .keyword(.private) || $0.name.tokenKind == .keyword(.fileprivate)) && $0.detail == nil }) }
+    var isStatic: Bool  { modifiers.contains(where: { $0.name.tokenKind == .keyword(.static) }) }
 
     var readPrivacyModifier: String {
         if isPublic {

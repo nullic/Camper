@@ -11,7 +11,8 @@ public struct UserProfile {
 
 @MemberwiseInit
 struct CacheEntry<Value> {
-    let key: String
+    let contant: String = "contant"
+    var key: String = "key"
     let value: Value
     let expiresAt: Date?
 }

@@ -32,14 +32,14 @@ extension ClassDeclSyntax {
         inputVariables.filter { !$0.isUnique }
     }
 
-    var isOpen: Bool { modifiers.contains(where: { $0.name.text == "open" }) }
-    var isPublic: Bool { modifiers.contains(where: { $0.name.text == "public" }) }
-    var isPackage: Bool { modifiers.contains(where: { $0.name.text == "package" }) }
-    var isPublicOrOpen: Bool { modifiers.contains(where: { $0.name.text == "public" || $0.name.text == "open" }) }
+    var isOpen: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.open) }) }
+    var isPublic: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.public) }) }
+    var isPackage: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.package) }) }
+    var isPublicOrOpen: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.public) || $0.name.tokenKind == .keyword(.open) }) }
 
-    var isFileprivate: Bool { modifiers.contains(where: { $0.name.text == "fileprivate" }) }
-    var isPrivate: Bool { modifiers.contains(where: { $0.name.text == "private" }) }
-    var isPrivateOrFileprivate: Bool { modifiers.contains(where: { $0.name.text == "private" || $0.name.text == "fileprivate" }) }
+    var isFileprivate: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.fileprivate) }) }
+    var isPrivate: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.private) }) }
+    var isPrivateOrFileprivate: Bool { modifiers.contains(where: { $0.name.tokenKind == .keyword(.private) || $0.name.tokenKind == .keyword(.fileprivate) }) }
 
     var privacyModifier: String {
         if isPublicOrOpen {

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
@@ -13,67 +14,36 @@ public enum MemberwiseInit: MemberMacro {
             throw CamperMacrosError.memberwiseInitIncorrectType
         }
 
-        let properties = storedProperties(from: structDecl)
-        guard !properties.isEmpty else { return [] }
-
-        let access = structDecl.accessLevelModifier.map { "\($0) " } ?? ""
-
-        let params = properties.map { prop in
-            let defaultValue = prop.isOptional ? " = nil" : ""
-            return "\(prop.name): \(prop.typeName)\(defaultValue)"
-        }.joined(separator: ",\n        ")
-
-        let assignments = properties.map { "self.\($0.name) = \($0.name)" }
-            .joined(separator: "\n        ")
-
-        let initDecl: DeclSyntax = """
-            \(raw: access)init(
-                \(raw: params)
-            ) {
-                \(raw: assignments)
+        let stored = structDecl.memberBlock.members
+            .compactMap { $0.decl.as(VariableDeclSyntax.self) }
+            .filter { variable in
+                !variable.isStatic &&
+                !variable.hasAccessorBlock &&
+                !variable.identifier.isEmpty &&
+                !variable.isInitializedConstant
             }
-            """
+        guard !stored.isEmpty else { return [] }
 
-        return [initDecl]
-    }
-}
+        let access = structDecl.privacyModifier
 
-// MARK: - Helpers
+        let params = stored.map { variable -> String in
+            let defaultClause: String
+            if let value = variable.initializerValue {
+                defaultClause = " = \(value)"
+            } else if variable.isOptional {
+                defaultClause = " = nil"
+            } else {
+                defaultClause = ""
+            }
+            return "\(variable.identifier): \(variable.rawIdentifierType)\(defaultClause)"
+        }.joined(separator: ", ")
 
-private struct StoredProperty {
-    let name: String
-    let typeName: String
-    var isOptional: Bool { typeName.hasSuffix("?") }
-}
-
-private func storedProperties(from structDecl: StructDeclSyntax) -> [StoredProperty] {
-    structDecl.memberBlock.members.compactMap { member -> StoredProperty? in
-        guard let varDecl = member.decl.as(VariableDeclSyntax.self),
-              let binding = varDecl.bindings.first,
-              binding.accessorBlock == nil,
-              binding.initializer == nil,
-              let pattern = binding.pattern.as(IdentifierPatternSyntax.self),
-              let typeAnnotation = binding.typeAnnotation
-        else { return nil }
-        return StoredProperty(
-            name: pattern.identifier.trimmedDescription,
-            typeName: typeAnnotation.type.trimmedDescription
-        )
-    }
-}
-
-private extension StructDeclSyntax {
-    var accessLevelModifier: String? {
-        for modifier in modifiers {
-            switch modifier.name.tokenKind {
-            case .keyword(.public): return "public"
-            case .keyword(.package): return "package"
-            case .keyword(.internal): return "internal"
-            case .keyword(.private): return "private"
-            case .keyword(.fileprivate): return "fileprivate"
-            default: continue
+        let initDecl = try InitializerDeclSyntax("\(raw: access) init(\(raw: params))") {
+            for variable in stored {
+                "self.\(raw: variable.identifier) = \(raw: variable.identifier)"
             }
         }
-        return nil
+
+        return [DeclSyntax(initDecl)]
     }
 }
