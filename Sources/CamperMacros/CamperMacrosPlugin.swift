@@ -24,6 +24,8 @@ struct CamperMacrosPlugin: CompilerPlugin {
         MockName.self,
         MemberwiseInit.self,
         SoftCodable.self,
+        SoftKey.self,
+        SoftRequired.self,
         SoftIgnore.self,
     ]
 }

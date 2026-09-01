@@ -85,7 +85,7 @@ extension SoftCodable: ExtensionMacro {
 
         let keyCases = coded.map { variable -> String in
             let name = variable.identifier
-            let key = name.snakeCased
+            let key = variable.softKey ?? name.snakeCased
             return key == name ? "case \(name)" : "case \(name) = \"\(key)\""
         }
 
@@ -93,7 +93,9 @@ extension SoftCodable: ExtensionMacro {
             let name = variable.identifier
             if variable.isOptional {
                 return "self.\(name) = try container.decodeIfPresent(\(variable.unwrappedIdentifierType).self, forKey: .\(name))"
-            } else if let defaultValue = variable.initializerValue {
+            } else if let defaultValue = variable.initializerValue,
+                      !variable.attributes.contains(named: "SoftRequired")
+            {
                 return "self.\(name) = try container.decodeIfPresent(\(variable.rawIdentifierType).self, forKey: .\(name)) ?? \(defaultValue)"
             } else {
                 return "self.\(name) = try container.decode(\(variable.rawIdentifierType).self, forKey: .\(name))"
@@ -133,6 +135,28 @@ extension SoftCodable: ExtensionMacro {
 
         guard let extensionDecl = extensionSource.as(ExtensionDeclSyntax.self) else { return [] }
         return [extensionDecl]
+    }
+}
+
+/// `@SoftRequired` — a no-op marker read by `@SoftCodable`.
+public enum SoftRequired: PeerMacro {
+    public static func expansion(
+        of _: AttributeSyntax,
+        providingPeersOf _: some DeclSyntaxProtocol,
+        in _: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        []
+    }
+}
+
+/// `@SoftKey` — a no-op marker read by `@SoftCodable`.
+public enum SoftKey: PeerMacro {
+    public static func expansion(
+        of _: AttributeSyntax,
+        providingPeersOf _: some DeclSyntaxProtocol,
+        in _: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        []
     }
 }
 

@@ -15,6 +15,24 @@ struct SoftSample: Equatable {
     var requiredId: String // no default → required (snake: required_id)
 }
 
+/// A run of capitals is one word, and the two spellings no rule reaches are named outright.
+@SoftCodable
+struct SoftAcronyms: Equatable {
+    var backendID: String = "" // backend_id
+    var revealsNPCIds: [String] = [] // reveals_npc_ids
+    var aboutNPCId: String? // about_npc_id
+    @SoftKey("required_pc_id") var requiredPCID: String? // an acronym next to another
+    @SoftKey("present_npcs") var presentNPCs: [String] = [] // a pluralised one
+}
+
+/// A format that refuses to migrate: the key must be in the file, and the default is the
+/// initializer's alone.
+@SoftCodable
+struct SoftVersioned: Equatable {
+    @SoftRequired var schemaVersion: Int = 3
+    var name: String = ""
+}
+
 // MARK: - Tests
 
 final class SoftCodableTests: XCTestCase {
@@ -42,6 +60,35 @@ final class SoftCodableTests: XCTestCase {
 
     func testMissingRequiredKeyThrows() {
         XCTAssertThrowsError(try decode(#"{"name": "no id here"}"#))
+    }
+
+    /// Spelling each capital as its own word gave `reveals_n_p_c_ids`, and soft decoding answers a
+    /// key nobody wrote with the property's default — so a wrong key cost data instead of throwing.
+    func testAnAcronymIsOneWord() throws {
+        let json = #"{"backend_id": "mlx", "reveals_npc_ids": ["npc_1"], "about_npc_id": "npc_2"}"#
+        let sample = try JSONDecoder().decode(SoftAcronyms.self, from: Data(json.utf8))
+        XCTAssertEqual(sample.backendID, "mlx")
+        XCTAssertEqual(sample.revealsNPCIds, ["npc_1"])
+        XCTAssertEqual(sample.aboutNPCId, "npc_2")
+    }
+
+    /// `requiredPCID` and `presentNPCs` have no case boundary to read, so they say their key.
+    func testSoftKeyNamesWhatNoRuleReaches() throws {
+        let json = #"{"required_pc_id": "pc_1", "present_npcs": ["npc_1", "npc_2"]}"#
+        let sample = try JSONDecoder().decode(SoftAcronyms.self, from: Data(json.utf8))
+        XCTAssertEqual(sample.requiredPCID, "pc_1")
+        XCTAssertEqual(sample.presentNPCs, ["npc_1", "npc_2"])
+
+        let written = String(decoding: try JSONEncoder().encode(sample), as: UTF8.self)
+        XCTAssertTrue(written.contains("required_pc_id"))
+        XCTAssertTrue(written.contains("present_npcs"))
+    }
+
+    func testSoftRequiredKeepsTheKeyRequiredOnTheWire() throws {
+        let present = try JSONDecoder().decode(SoftVersioned.self, from: Data(#"{"schema_version": 2}"#.utf8))
+        XCTAssertEqual(present.schemaVersion, 2)
+        XCTAssertThrowsError(try JSONDecoder().decode(SoftVersioned.self, from: Data(#"{"name": "x"}"#.utf8)))
+        XCTAssertEqual(SoftVersioned(name: "built in code").schemaVersion, 3)
     }
 
     func testEncodeDecodeRoundTrips() throws {

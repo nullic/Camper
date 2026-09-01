@@ -4,6 +4,15 @@ import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
 extension VariableDeclSyntax {
+    /// The key `@SoftKey("…")` names for this property, where the derived spelling cannot reach it.
+    var softKey: String? {
+        guard let attribute = attributes.first(named: "SoftKey"),
+              let arguments = attribute.arguments?.as(LabeledExprListSyntax.self),
+              let literal = arguments.first?.expression.as(StringLiteralExprSyntax.self)
+        else { return nil }
+        return literal.segments.compactMap { $0.as(StringSegmentSyntax.self)?.content.text }.joined()
+    }
+
     var identifier: String {
         for binding in bindings {
             guard let pattern = binding.children(viewMode: .all).first(type: IdentifierPatternSyntax.self) else { continue }
