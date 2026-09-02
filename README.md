@@ -209,6 +209,25 @@ var isLoggedIn: Bool {
 
 If the protocol is `public`, the mock and all members are also `public`.
 
+### `@MockName`
+
+Overrides the prefix used for one method's generated members. By default the prefix is built from the method name plus every parameter's label and type, which is long and overload-sensitive:
+
+```swift
+@AutoMockable
+protocol AuthRepository {
+    @MockName("login")
+    func login(email: String, password: String) async throws
+}
+// loginCallsCount, loginReceivedArguments, loginClosure, …
+```
+
+The override is applied verbatim — two methods sharing a `@MockName` are a duplicate-symbol error at compile time.
+
+**Known limitations**
+- Generated member names embed each parameter's label and type, so they are long and hard to predict; `@MockName` is the escape hatch.
+- `@MainActor` and complex `async`/`throws` combinations are not covered by macro-level tests — treat them as unverified until exercised in your own suite.
+
 ---
 
 ## SwiftData
@@ -249,53 +268,147 @@ final class Article {
 
 ### `#hexColor`, `#hexUIColor`, `#hexNSColor`
 
-Create colors from hex literals at compile time. Supports 3, 4, 6, and 8-digit hex formats with or without `#`/`0x` prefix.
+Create colors from hex literals at compile time. Supports 3 (RGB), 4 (RGBA), 6 (RRGGBB), and 8 (RRGGBBAA) digit formats, with or without a `#` / `0x` prefix, in both string- and integer-literal form.
 
 ```swift
 let color = #hexColor("#FF5733")
-let adaptive = #hexUIColor("#FFFFFF", "#1A1A1A")  // light, dark
+let same  = #hexColor(0xFF5733)
 ```
+
+Passing two literals gives a **light/dark adaptive** color:
+
+```swift
+let text = #hexColor("2A2118", "E8E0D2")     // plain SwiftUI Color
+let bg   = #hexUIColor("#FFFFFF", "#1A1A1A") // UIKit only
+let line = #hexNSColor(0xFFFFFF, 0x000000)   // AppKit only
+```
+
+The two-argument `#hexColor` is the cross-platform one: it expands to a `UIColor`-backed adaptive `Color` on UIKit hosts and an `NSColor`-backed one on AppKit hosts, so palette code needs no `#if canImport(UIKit)` of its own. The expansion is a single expression, so it works in a computed-property body.
+
+### `#cssColor`, `#cssUIColor`, `#cssNSColor`
+
+Same three return types, but accepting CSS spellings: hex (`#FFF`, `#FFFF`, `#FFFFFF`, `#FFFFFFFF`), `rgb(r, g, b)` and `rgba(r, g, b, a)` — R/G/B are `0...255`, alpha is `0...1`. The UIKit/AppKit variants also take a light/dark pair.
+
+```swift
+let red      = #cssColor("#FF0000")
+let green    = #cssColor("rgb(0, 255, 0)")
+let semiBlue = #cssColor("rgba(0, 0, 255, 0.5)")
+let adaptive = #cssUIColor("#FFFFFF", "rgb(0, 0, 0)")
+```
+
+All of these are validated at compile time — a malformed literal is a build error, not a runtime fallback.
 
 ### `#localized`
 
-Creates a `LocalizedStringResource` from a string literal:
+Creates a `LocalizedStringResource` from a string literal, with an optional bundle:
 
 ```swift
-let title = #localized("welcome.title")
-// Equivalent to: LocalizedStringResource("welcome.title", bundle: .main)
+let title      = #localized("welcome.title")            // bundle: .main
+let fromModule = #localized("welcome.title", .module)
 ```
+
+`.main` is emitted as the literal `bundle: .main` (and every other accessor through `bundle: .atURL(Bundle.<x>.bundleURL)`) — the two shapes Xcode's String Catalog extractor recognises, so keys declared this way are not tagged stale.
 
 ---
 
 ## Code Generation
 
+### `@SoftCodable`
+
+Generates `Codable` conformance with snake_case keys and **soft-fail decoding**: a missing key falls back to the property's inline default instead of throwing. Removes hand-written `CodingKeys` + `init(from:)` + `encode(to:)` from data-definition structs (rule manifests, settings, scenario files).
+
+```swift
+@SoftCodable
+public struct Boundaries: Sendable, Hashable {
+    public var rating: String = ""
+    public var avoid: [String] = []
+    public var note: String?
+}
+// Keys: "rating", "avoid", "note" — missing "avoid" decodes to [], missing "note" to nil.
+```
+
+Applies to a `struct` whose stored properties carry an explicit type. Decoding, per property:
+
+| Property | On a missing key |
+|----------|------------------|
+| has an inline default | falls back to it |
+| optional type | `nil` |
+| non-optional, no default | required — throws |
+
+`static` and computed properties are ignored. `init(from:)` / `encode(to:)` are emitted in an extension, and a memberwise `init` built from the same inline defaults is emitted as a member at the struct's access level — a `public` struct gets a `public` one, which the implicit memberwise initializer never is (it is `internal`, so it cannot be used as a default argument outside the module).
+
+Key derivation reads a run of capitals as one word: `backendID` → `"backend_id"`, not `"backend_i_d"`.
+
+**Helper macros:**
+
+| Macro | Effect |
+|-------|--------|
+| `@SoftKey("...")` | Names the key outright, where no case boundary exists to read: `requiredPCID` → `"required_pc_id"`, `presentNPCs` → `"present_npcs"` |
+| `@SoftRequired` | Keeps the key required on decode even though the property has an inline default — the default then serves only the generated initializer |
+| `@SoftIgnore` | Skips the property entirely (neither encoded nor decoded); it must have an inline default, which it is set to on decode |
+
+```swift
+@SoftCodable
+public struct Scenario: Sendable {
+    @SoftRequired public var schemaVersion: Int = 3        // must be in the file
+    @SoftKey("reveals_npc_ids") public var revealsNPCIds: [String] = []
+    @SoftIgnore public var isDirty: Bool = false           // transient
+}
+```
+
 ### `@MemberwiseInit`
 
-Generates a memberwise `init` for structs. Optional properties automatically get `= nil` default values.
+Generates a memberwise `init` for structs, at the struct's own access level.
+
+| Property | Parameter |
+|----------|-----------|
+| `var x: T = value` | `x: T = value` — the default is preserved |
+| `var x: T?` / `let x: T?` | `x: T? = nil` |
+| `let x: T` | `x: T` — required |
+| `let x: T = value` | none — an initialized constant cannot be assigned |
 
 ```swift
 @MemberwiseInit
-struct UserProfile {
-    let name: String
-    let bio: String?
-    let avatarURL: URL?
+public struct UserProfile {
+    public let name: String
+    public let bio: String?
+    public var greeting: String = "hi"
+    public let createdAt: Date = .now
 }
-// Generates: init(name: String, bio: String? = nil, avatarURL: URL? = nil)
+// Generates:
+// public init(name: String, bio: String? = nil, greeting: String = "hi")
 ```
 
 ### `@StringRepresentable`
 
-Generates `RawRepresentable` conformance with dot-separated string encoding for enums.
+Generates `RawRepresentable` (and `StringRepresentableValue`) conformance with dot-separated string encoding for enums.
 
 ```swift
 @StringRepresentable
-enum Status {
-    case active
-    case suspended(reason: String)
+enum Route {
+    case home                     // "home"
+    case settings(id: Int)        // "settings.42"
+    case profile(name: String?)   // "profile" or "profile.john"
 }
-// active -> "active"
-// suspended(reason: "spam") -> "suspended.spam"
 ```
+
+A simple case spells itself with its own name; an associated value is appended after a dot. An optional associated value omits the suffix when `nil`.
+
+**The associated value must be `StringRepresentableValue`** — the protocol answering how a value spells itself and how it is read back. Two families conform for free: anything `LosslessStringConvertible` (`Int`, `Double`, `Bool`, `String`, …) and anything `RawRepresentable where RawValue == String`, another `@StringRepresentable` enum included. A type that is both must pick one itself.
+
+**One value per case.** The encoding's only degree of freedom is its tail, so exactly one value may itself contain a dot; a case with two associated values is a compile error. Wrap them in a single value instead.
+
+**Spelling** — `@StringRepresentable(.snakeCase)` writes case names as snake_case, for an enum riding in a document whose every other key is snake_case:
+
+```swift
+@StringRepresentable(.snakeCase)
+enum Trigger {
+    case scenarioStart        // "scenario_start"
+    case countdownStep(Int)   // "countdown_step.2"
+}
+```
+
+It is opt-in and has to be: `.caseName` (the default) produces raw values that are already written down — a theme in `@AppStorage`, an event kind in a store — and a spelling that changed under them would read back as nothing. The conversion is `@SoftCodable`'s, so a run of capitals stays one word.
 
 ### `@LoggersCollection`
 
@@ -414,6 +527,49 @@ let watcher = await executor.watcher(id: id)
 - `wait(id:)` — `async throws` until the operation reaches `.success` or `.failed`. Returns immediately if the operation already finished.
 
 `perform(id:ignoreActive:operation:)` skips the call if the same `id` is currently `.inProgress`, unless `ignoreActive: true` is passed.
+
+---
+
+## Utilities
+
+### `TaskQueue`
+
+An actor limiting how many `async` operations run at once. `enqueue` suspends until a slot is free, then runs the operation and rethrows whatever it throws.
+
+```swift
+let queue = TaskQueue(concurrency: 2)
+let result = try await queue.enqueue { try await importer.run(file) }
+```
+
+### `ObservationContainer` / `ObservationToken`
+
+A lightweight, actor-backed observer registry. Observers are held **weakly** — keep the returned token alive for as long as you want the callback, and drop it to unsubscribe.
+
+```swift
+let container = ObservationContainer<Int>()
+let token = container.addObserver { value in print(value) }   // retain me
+await container.notifyObservers(value: 42)
+```
+
+`addObserver` and the `nonisolated` `notifyObservers` overloads are callable synchronously (they hop onto the actor themselves); from an `async` context the actor-isolated `notifyObservers(value:)` is picked, so it needs `await`. `Value == Void` also gets a no-argument `notifyObservers()`.
+
+### `FolderMonitor` / `FileWatcher`
+
+Watch a directory or a single file for changes. Both expose their state on the main actor, so SwiftUI can read it directly.
+
+```swift
+let monitor = FolderMonitor(url: folder)
+monitor.startMonitoring()
+// monitor.folderContent: [FilePathInfo] — @MainActor, updated on change
+monitor.stopMonitoring()
+
+// FileWatcher is @Observable and its init is @MainActor.
+let watcher = FileWatcher(url: file)
+watcher.startMonitoring()
+// watcher.isExist, watcher.hashValue — both @MainActor
+```
+
+`FilePathInfo` is a `Sendable`, `Hashable`, `Identifiable` snapshot of one path: `isFolder`, `name`, `url`, `size`, `modificationDate`, `creationDate`. It identifies by value, so SwiftUI diffing notices a size or date change on an unchanged path.
 
 ---
 

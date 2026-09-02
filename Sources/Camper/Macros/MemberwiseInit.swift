@@ -1,9 +1,9 @@
-/// Generates a memberwise `init` for a struct where optional stored properties
-/// receive `= nil` as their default value, and properties with explicit defaults
-/// preserve their initial values.
+/// Generates a memberwise `init` for a struct, at the struct's own access level.
 ///
-/// Non-optional properties without defaults remain required. The generated `init` access level
-/// matches the struct's declared access level.
+/// - `var x: T = value` becomes `x: T = value` — the default is preserved;
+/// - an optional property becomes `x: T? = nil`;
+/// - `let x: T` stays required;
+/// - `let x: T = value` gets no parameter at all — an initialized constant cannot be assigned.
 ///
 /// ### Example:
 /// ```swift
@@ -12,7 +12,8 @@
 ///     public let host: String
 ///     public let port: Int
 ///     public let label: String?
-///     public let verbose: Bool = false
+///     public var verbose: Bool = false
+///     public let createdAt: Date = .now
 /// }
 /// // Generates: public init(host: String, port: Int, label: String? = nil, verbose: Bool = false)
 /// ```
