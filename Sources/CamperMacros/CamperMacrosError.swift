@@ -5,6 +5,7 @@ enum CamperMacrosError: CustomStringConvertible, Error {
     case loggersCategoriesNotFound
     case ioModelIncorrectType
     case stringIncorrectType
+    case stringMultipleAssociatedValues(caseName: String)
     case hexColorInvalidValue
     case cssColorInvalidValue
 
@@ -28,6 +29,8 @@ enum CamperMacrosError: CustomStringConvertible, Error {
         case .loggersCategoriesNotFound: return "Must contains 'Categories' enum with at least one case value"
         case .ioModelIncorrectType: return "@IOModel can only be applied to class"
         case .stringIncorrectType: return "@StringRepresentable can only be applied to enum"
+        case .stringMultipleAssociatedValues(let caseName):
+            return "@StringRepresentable writes one value after the dot, and `\(caseName)` carries more than one — there is no spelling that reads them all back. Wrap them in one value."
         case .hexColorInvalidValue: return "#hexColor accept only next formats: '#rgb' '#rgba' '#rrggbb' '#rrggbbaa' '0xrgb' '0xrgba' '0xrrggbb' '0xrrggbbaa'"
         case .cssColorInvalidValue: return "#cssColor accept only next formats: '#rgb' '#rgba' '#rrggbb' '#rrggbbaa' 'rgb(r, g, b)' 'rgba(r, g, b, a)'"
         case .injectionIncorrectType: return "@Injection can only be applied to protocol"

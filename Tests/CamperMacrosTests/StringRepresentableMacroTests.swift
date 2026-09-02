@@ -24,7 +24,7 @@ final class StringRepresentableMacroTests: XCTestCase {
                 case settings
             }
 
-            extension Route: RawRepresentable {
+            extension Route: RawRepresentable, StringRepresentableValue {
                 internal var rawValue: String {
                     switch self {
                     case .home:
@@ -64,11 +64,11 @@ final class StringRepresentableMacroTests: XCTestCase {
                 case detail(id: Int)
             }
 
-            extension Route: RawRepresentable {
+            extension Route: RawRepresentable, StringRepresentableValue {
                 internal var rawValue: String {
                     switch self {
                     case .detail(let value):
-                        return "detail.\\(value.rawValue)"
+                        return "detail.\\(value.stringRepresentation)"
                     }
                 }
                 internal init?(rawValue: String) {
@@ -78,8 +78,8 @@ final class StringRepresentableMacroTests: XCTestCase {
                     case "detail":
                         let restComponents = components.suffix(from: 1)
                         let restString = restComponents.joined(separator: ".")
-                        if !restComponents.isEmpty, let value = Int(rawValue: restString) {
-                            self = .detail(value)
+                        if !restComponents.isEmpty, let value = Int.read(fromStringRepresentation: restString) {
+                            self = .detail(id: value)
                         } else {
                             return nil
                         }
@@ -89,6 +89,32 @@ final class StringRepresentableMacroTests: XCTestCase {
                 }
             }
             """,
+            macros: testMacros
+        )
+    }
+
+    /// Only the first value was ever read, so the second went out and never came back. Refusing
+    /// says so; the encoding has one tail and cannot carry two.
+    func testCaseWithTwoAssociatedValues() {
+        assertMacroExpansion(
+            """
+            @StringRepresentable
+            enum Route {
+                case settings(id: Int, name: String)
+            }
+            """,
+            expandedSource: """
+            enum Route {
+                case settings(id: Int, name: String)
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "@StringRepresentable writes one value after the dot, and `settings` carries more than one — there is no spelling that reads them all back. Wrap them in one value.",
+                    line: 1,
+                    column: 1
+                ),
+            ],
             macros: testMacros
         )
     }
@@ -106,12 +132,12 @@ final class StringRepresentableMacroTests: XCTestCase {
                 case profile(name: String?)
             }
 
-            extension Route: RawRepresentable {
+            extension Route: RawRepresentable, StringRepresentableValue {
                 internal var rawValue: String {
                     switch self {
                     case .profile(let value):
                         if let value {
-                            return "profile.\\(value.rawValue)"
+                            return "profile.\\(value.stringRepresentation)"
                         } else {
                             return "profile"
                         }
@@ -125,9 +151,9 @@ final class StringRepresentableMacroTests: XCTestCase {
                         let restComponents = components.suffix(from: 1)
                         let restString = restComponents.joined(separator: ".")
                         if restComponents.isEmpty {
-                            self = .profile(nil)
-                        } else if let value = String(rawValue: restString) {
-                            self = .profile(value)
+                            self = .profile(name: nil)
+                        } else if let value = String.read(fromStringRepresentation: restString) {
+                            self = .profile(name: value)
                         } else {
                             return nil
                         }
