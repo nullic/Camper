@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.15] - 2026-09-03
+
+### Added
+- `@SoftCodable` on an `enum` — `Codable` for a sum type, spelled for a document people author by hand: the case's snake_case name is the key and its value sits directly under it (`establish: {id: fact_log}`), a case with no value is a bare string (`finish`), and a case with several values writes each under its own name (`spend: {resource: doom, amount: 1}`). Previously the macro threw `@SoftCodable can only be applied to struct`, leaving the compiler's synthesised conformance, which spells a payload `_0` — legal, and unreadable in a file anyone opens. `@StringRepresentable` remains the answer where a whole case fits in one string; this is the answer where a case carries a record.
+- The coder is emitted as **members** of the enum, not in an extension: an extension is not lexically inside the enclosing type, so a payload type declared beside the enum (`case establish(Fact)`) does not resolve there.
+
+### Changed
+- A case carrying two or more **unlabelled** values is refused with a diagnostic: each value is written under its own name, and an unlabelled one has none — falling back to `_0` / `_1` is the very thing this generates a coder to avoid. Label them, or wrap them in one value.
+- Decoding a sum type is deliberately not soft: a struct falls back to a property's inline default, a sum type has nothing to fall back to, so a name no case answers to throws rather than silently decoding as something else.
+
 ## [1.0.11] - 2026-09-02
 
 ### Added

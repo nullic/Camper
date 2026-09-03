@@ -27,6 +27,11 @@ extension SoftCodable: MemberMacro {
         conformingTo _: [TypeSyntax],
         in _: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
+        // A sum type has no properties to take — its cases are its initialisers — but it does
+        // need a coder, and that coder has to be a member (see `SoftCodableEnumCoder`).
+        if let enumDecl = declaration.as(EnumDeclSyntax.self) {
+            return try SoftCodableEnumCoder.members(of: enumDecl)
+        }
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
             throw CamperMacrosError.softCodableIncorrectType
         }
@@ -67,6 +72,13 @@ extension SoftCodable: ExtensionMacro {
         conformingTo _: [TypeSyntax],
         in _: some MacroExpansionContext
     ) throws -> [ExtensionDeclSyntax] {
+        // The members are written by the member expansion; the extension only signs the
+        // conformance.
+        if declaration.as(EnumDeclSyntax.self) != nil {
+            let source: DeclSyntax = "extension \(raw: type.trimmedDescription): Codable {}"
+            guard let extensionDecl = source.as(ExtensionDeclSyntax.self) else { return [] }
+            return [extensionDecl]
+        }
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
             throw CamperMacrosError.softCodableIncorrectType
         }

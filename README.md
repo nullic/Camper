@@ -356,6 +356,30 @@ public struct Scenario: Sendable {
 }
 ```
 
+**On an `enum`:** a sum type is written as the case's snake_case name, with its value directly under it. A struct describes its properties, so the macro had nothing to say about a sum type and refused to expand — and the `Codable` a compiler synthesises instead spells the payload `_0`, which is legal and unreadable in a document people author by hand.
+
+```swift
+@SoftCodable
+public enum Effect: Sendable, Equatable {
+    case finish                                     // finish
+    case establish(Fact)                            // establish: {id: fact_log, learns: …}
+    case spend(resource: String, amount: Int)       // spend: {resource: doom, amount: 1}
+}
+```
+
+| Case | On disk |
+|------|---------|
+| no value | the bare name as a string — so a mixed list stays readable, not a run of empty objects |
+| one value | written directly under the name; the label, if any, is not repeated |
+| two or more | each under its own name — **labels required**, see below |
+| unknown name | a decoding error |
+
+Two values need two keys, and an unlabelled value has no name to be written under, so `case spend(String, Int)` is **refused with a diagnostic** rather than falling back to `_0` / `_1` — the way `@StringRepresentable` refuses a second value rather than dropping it. Label them, or wrap them in one value.
+
+Decoding is not soft here, and cannot be: a struct falls back to a property's inline default, and a sum type has nothing to fall back to — a name no case answers to throws instead of silently becoming something else. The coder is emitted as **members** rather than in an extension: an extension is not lexically inside the enclosing type, so a payload type declared beside the enum (`case establish(Fact)` next to `struct Fact`) would not resolve there.
+
+`@StringRepresentable` stays the answer where a whole case fits in one string (`countdown_step.3`, one value, readable as a raw value); this is the answer where a case carries a record.
+
 ### `@MemberwiseInit`
 
 Generates a memberwise `init` for structs, at the struct's own access level.

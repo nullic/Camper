@@ -24,7 +24,29 @@
 /// }
 /// // Author writes no `: Codable`, no CodingKeys, no init(from:)/encode(to:).
 /// ```
-@attached(member, names: named(init))
+///
+/// ### On an enum
+///
+/// A sum type is written as the case's snake_case name and its value directly under it. A case
+/// with no value is a bare string, so a mixed list stays readable; a case carrying two values
+/// writes each under its own name, and therefore **must label them** — an unlabelled pair has
+/// no name to be written under, and the macro refuses to expand rather than fall back to `_0`.
+/// A name no case answers to is a decoding error, never a silent drop.
+///
+/// ```swift
+/// @SoftCodable
+/// public enum Effect: Sendable, Equatable {
+///     case finish                                        // finish
+///     case establish(Fact)                               // establish: {id: fact_log}
+///     case spend(resource: ResourceID, amount: Int)      // spend: {resource: doom, amount: 1}
+/// }
+/// ```
+///
+/// `@StringRepresentable` stays the answer where a whole case fits in one string
+/// (`countdown_step.3`); this is the answer where a case carries a record. Decoding is not
+/// soft here: a struct falls back to a property's default, and a sum type has nothing to
+/// fall back to.
+@attached(member, names: named(init), named(init(from:)), named(encode(to:)), named(CodingKeys))
 @attached(extension, conformances: Codable, names: named(init(from:)), named(encode(to:)), named(CodingKeys))
 public macro SoftCodable() = #externalMacro(module: "CamperMacros", type: "SoftCodable")
 
