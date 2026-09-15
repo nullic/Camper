@@ -96,7 +96,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(name: name, age: age)
-                    }else { return Snapshot(name: name, age: age) }
+                    }
+                else { return Snapshot(name: name, age: age) }
                 }
             }
             """,
@@ -156,7 +157,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(name: name)
-                    }else { return Snapshot(name: name) }
+                    }
+                else { return Snapshot(name: name) }
                 }
             }
             """,
@@ -274,7 +276,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(name: name, nickname: .value(nickname))
-                    }else { return Snapshot(name: name, nickname: .value(nickname)) }
+                    }
+                else { return Snapshot(name: name, nickname: .value(nickname)) }
                 }
             }
             """,
@@ -379,7 +382,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(name: name, nickname: .value(nickname))
-                    }else { return Snapshot(name: name, nickname: .value(nickname)) }
+                    }
+                else { return Snapshot(name: name, nickname: .value(nickname)) }
                 }
             }
             """,
@@ -503,7 +507,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(title: title, author: .link(author.uniqueValue))
-                    }else { return Snapshot(title: title, author: .ignore) }
+                    }
+                else { return Snapshot(title: title, author: .ignore) }
                 }
             }
             """,
@@ -574,7 +579,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(name: name, bio: bio)
-                    }else { return Snapshot(name: name, bio: bio) }
+                    }
+                else { return Snapshot(name: name, bio: bio) }
                 }
             }
             """,
@@ -644,7 +650,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(id: id, name: name)
-                    }else { return Snapshot(id: id, name: name) }
+                    }
+                else { return Snapshot(id: id, name: name) }
                 }
             }
             """,
@@ -715,7 +722,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(id: id, name: name)
-                    }else { return Snapshot(id: id, name: name) }
+                    }
+                else { return Snapshot(id: id, name: name) }
                 }
 
                 @MainActor private final class BackgroundChangesMonitor {
@@ -882,7 +890,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(name: name)
-                    }else { return Snapshot(name: name) }
+                    }
+                else { return Snapshot(name: name) }
                 }
             }
             """,
@@ -1225,7 +1234,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(title: title, detail: .ignore)
-                    }else { return Snapshot(title: title, detail: .ignore) }
+                    }
+                else { return Snapshot(title: title, detail: .ignore) }
                 }
             }
             """,
@@ -1346,7 +1356,8 @@ final class IOModelMacroTests: XCTestCase {
                 internal func snapshot(includeLinks: Bool = false) -> Snapshot {
                     if includeLinks {
                         return Snapshot(title: title, tags: .ignore)
-                    }else { return Snapshot(title: title, tags: .ignore) }
+                    }
+                else { return Snapshot(title: title, tags: .ignore) }
                 }
             }
             """,

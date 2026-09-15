@@ -89,6 +89,45 @@ final class LoggerConfiguratorTests: XCTestCase {
         // Reaching this point under TSan / unfair-lock without a crash is the assertion.
         XCTAssertGreaterThanOrEqual(received.values.count, 0)
     }
+
+    func testZippedLogsAreOneArchiveFile() throws {
+        LoggerConfigurator.configure(writeLogFile: true)
+        TestLogger.test.error("a line worth keeping")
+        LoggerConfigurator.flush()
+
+        let url = try LoggerConfigurator.logsToSend()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        XCTAssertEqual(url.pathExtension, "zip")
+
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        XCTAssertEqual(try handle.read(upToCount: 2), Data("PK".utf8), "what comes back is a real archive, not a folder")
+    }
+
+    @available(*, deprecated)
+    func testTheOldNameStillAnswers() throws {
+        LoggerConfigurator.configure(writeLogFile: true)
+        TestLogger.test.error("through the old door")
+
+        let url = try LoggerConfigurator.zipLogs()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertEqual(url, try LoggerConfigurator.logsToSend())
+    }
+
+    func testZippingTwiceReplacesWhatWasThere() throws {
+        LoggerConfigurator.configure(writeLogFile: true)
+        TestLogger.test.error("first")
+        let once = try LoggerConfigurator.logsToSend()
+        TestLogger.test.error("second")
+        let twice = try LoggerConfigurator.logsToSend()
+        defer { try? FileManager.default.removeItem(at: twice) }
+
+        XCTAssertEqual(once, twice)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: twice.path))
+    }
 }
 
 // MARK: - Helpers
@@ -97,6 +136,7 @@ private enum TestLogger: String, Camper.Logger {
     case test
 
     var subsystem: String { "CamperTests" }
+
 }
 
 private final class SyncList<T>: @unchecked Sendable {

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.16] - 2026-09-15
+
+### Changed
+- `LoggerConfigurator.zipLogs()` is now `logsToSend()`. The old name said how it was done, and how it was done has just changed; every caller of it is asking for one thing — the logs as a single file to hand somewhere — and the name now says that. The old name stays as a deprecated call that forwards, so nothing built against 1.0.15 stops compiling.
+- That file is gathered by the system's own file coordination (`NSFileCoordinator`, `.forUploading`) rather than by an archiver of ours, so **ZIPFoundation is no longer a dependency of Camper**. It arrives as the same `.zip` beside the logs folder.
+- The manifest asks for Swift tools 6.0 rather than 6.2. Nothing in it or in the sources needed 6.2, and SPM refuses an older toolchain outright on the tools-version alone, so the higher number only turned away toolchains that would have built the package fine.
+- swift-syntax now spans `600.0.0 ..< 604.0.0`, taking 603 where the graph allows it. Nothing in the macros needed changing; 603's pretty-printer breaks the line before `else`, so the eleven `IOModelMacroTests` fixtures that compare printed expansions were reshaped to match it.
+
+### Removed
+- The ZIPFoundation dependency. A dependency-injection library had no business carrying an archiver, and it travelled into the graph of everything that uses Camper.
+
+### Documentation
+- `@Injector`'s parameter table said `mock` and `dependenciesMock` default to `false`; both default to `true`, so the table told a reader to switch on what is already on.
+- The same section called the generated `AppInjectorMock.mock` a property. It is `static func mock(configure:)`, and the line as written would not have compiled.
+- Installation now names the floor the package actually stands on — Swift 6.0, macOS 14 / iOS 17 / Mac Catalyst 17 — and the two dependencies left.
+
 ## [1.0.15] - 2026-09-03
 
 ### Added

@@ -14,12 +14,15 @@ A Swift macro library providing dependency injection infrastructure, code genera
 ## Installation
 
 ```swift
-.package(url: "https://github.com/nullic/Camper.git", from: "1.0.0")
+.package(url: "https://github.com/nullic/Camper.git", from: "1.0.16")
 ```
 
 ```swift
 .target(name: "YourTarget", dependencies: ["Camper"])
 ```
+
+Swift 6.0 or newer, macOS 14 / iOS 17 / Mac Catalyst 17 or newer. The package carries
+SwiftyBeaver and swift-syntax, and nothing else.
 
 ---
 
@@ -46,14 +49,18 @@ class AppInjector {
 - `protocol Outputs` with all `@Output` properties
 - `init(dependencies:)` and/or `init()` depending on what's declared
 - `typealias DefaultInjector = AppInjector`
-- `AppInjectorMock.mock` static property (with `mock: true`)
+- `enum AppInjectorMock` with `static func mock(configure:)` (with `mock: true`)
 - `AppInjector.DependenciesMock` class (with `dependenciesMock: true`)
 
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `mock` | `false` | Generates `AppInjectorMock` enum with a static `mock` property |
-| `dependenciesMock` | `false` | Generates `AppInjector.DependenciesMock: AppInjector.Dependencies` |
+| `mock` | `true` | Generates `enum AppInjectorMock` whose `mock(configure:)` builds the injector on mocked dependencies |
+| `dependenciesMock` | `true` | Generates `AppInjector.DependenciesMock: AppInjector.Dependencies` |
+
+```swift
+let injector = AppInjectorMock.mock { $0.api = APIServiceMock() }
+```
 
 ### `@Dependency`
 
@@ -327,7 +334,7 @@ public struct Boundaries: Sendable, Hashable {
 // Keys: "rating", "avoid", "note" — missing "avoid" decodes to [], missing "note" to nil.
 ```
 
-Applies to a `struct` whose stored properties carry an explicit type. Decoding, per property:
+Applies to a `struct` whose stored properties carry an explicit type — and to an `enum`, which is written differently and is described further down. Decoding, per property:
 
 | Property | On a missing key |
 |----------|------------------|
@@ -518,7 +525,7 @@ When `writeLogFile: true`, logs are written to a `.log` file under `LoggerConfig
 
 - `LoggerConfigurator.flush()` — flush buffered output.
 - `LoggerConfigurator.clearLogs()` — remove all log files (re-creates a fresh destination if file logging is enabled).
-- `LoggerConfigurator.zipLogs()` — flush, archive the folder into a sibling `.zip`, return the archive URL.
+- `LoggerConfigurator.logsToSend()` — flush, gather the folder into a sibling `.zip` through the system's own file coordination, and return that file's URL. (Was `zipLogs()`, which still answers and is deprecated.)
 
 ---
 

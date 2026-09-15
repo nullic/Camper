@@ -2,7 +2,6 @@ import Foundation
 import os
 import OSLog
 @preconcurrency import SwiftyBeaver
-import ZIPFoundation
 
 public protocol Logger {
     var subsystem: String { get }
@@ -193,7 +192,7 @@ public enum LoggerConfigurator {
         }
     }
 
-    public static func zipLogs() throws -> URL {
+    public static func logsToSend() throws -> URL {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: logsFolder.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             throw NSError(domain: "LoggerDomain", code: -1, userInfo: nil)
@@ -205,8 +204,24 @@ public enum LoggerConfigurator {
         }
 
         flush()
-        try FileManager.default.zipItem(at: logsFolder, to: resultUrl)
-        return URL(fileURLWithPath: resultUrl.path)
+
+        var kept: Error?
+        var refused: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: logsFolder, options: [.forUploading], error: &refused) { zipped in
+            do {
+                try FileManager.default.copyItem(at: zipped, to: resultUrl)
+            } catch {
+                kept = error
+            }
+        }
+        if let refused { throw refused }
+        if let kept { throw kept }
+        return resultUrl
+    }
+
+    @available(*, deprecated, renamed: "logsToSend()")
+    public static func zipLogs() throws -> URL {
+        try logsToSend()
     }
 
     public static func flush() {
