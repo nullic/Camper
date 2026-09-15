@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.17] - 2026-09-15
+
+### Fixed
+- `logsToSend()` threw an opaque `LoggerDomain -1` on a machine that had logged nothing yet: the logs folder is made when file logging is configured, and gathered even when it is empty. A machine with nothing to say still has something to hand over, and CI — where no log had ever been written — is exactly that machine.
+- The archive is now written under a name of its own and moved over the old one, rather than the old one being deleted first and copied over. Two callers arriving together raced: one deleted, both copied, and the second failed with «logs.zip already exists».
+
 ## [1.0.16] - 2026-09-15
 
 ### Changed

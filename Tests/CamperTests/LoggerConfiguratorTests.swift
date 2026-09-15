@@ -90,6 +90,30 @@ final class LoggerConfiguratorTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(received.values.count, 0)
     }
 
+    func testLogsAreGatheredEvenWhereNothingHasBeenWrittenYet() throws {
+        LoggerConfigurator.configure(writeLogFile: false)
+        try? FileManager.default.removeItem(at: LoggerConfigurator.logsFolder)
+        try? FileManager.default.removeItem(at: LoggerConfigurator.logsFolder.appendingPathExtension("zip"))
+
+        let url = try LoggerConfigurator.logsToSend()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path), "a machine that has logged nothing yet still has something to hand over")
+    }
+
+    func testGatheringOverAnArchiveThatIsAlreadyThereReplacesIt() throws {
+        LoggerConfigurator.configure(writeLogFile: true)
+        TestLogger.test.error("first")
+        let once = try LoggerConfigurator.logsToSend()
+        TestLogger.test.error("second")
+        let twice = try LoggerConfigurator.logsToSend()
+        defer { try? FileManager.default.removeItem(at: twice) }
+
+        XCTAssertEqual(once, twice)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: twice.path))
+        XCTAssertEqual(try FileHandle(forReadingFrom: twice).read(upToCount: 2), Data("PK".utf8))
+    }
+
     func testZippedLogsAreOneArchiveFile() throws {
         LoggerConfigurator.configure(writeLogFile: true)
         TestLogger.test.error("a line worth keeping")

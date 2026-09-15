@@ -161,6 +161,8 @@ public enum LoggerConfigurator {
     }
 
     private static func addFileDestination() {
+        try? FileManager.default.createDirectory(at: logsFolder, withIntermediateDirectories: true)
+
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
@@ -194,28 +196,34 @@ public enum LoggerConfigurator {
 
     public static func logsToSend() throws -> URL {
         var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: logsFolder.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            throw NSError(domain: "LoggerDomain", code: -1, userInfo: nil)
-        }
-
-        let resultUrl = logsFolder.appendingPathExtension("zip")
-        if FileManager.default.fileExists(atPath: resultUrl.path) {
-            try FileManager.default.removeItem(atPath: resultUrl.path)
+        if !FileManager.default.fileExists(atPath: logsFolder.path, isDirectory: &isDirectory) || !isDirectory.boolValue {
+            try FileManager.default.createDirectory(at: logsFolder, withIntermediateDirectories: true)
         }
 
         flush()
+
+        let resultUrl = logsFolder.appendingPathExtension("zip")
+        let staging = logsFolder
+            .deletingLastPathComponent()
+            .appendingPathComponent("logs-\(UUID().uuidString.prefix(8)).zip")
 
         var kept: Error?
         var refused: NSError?
         NSFileCoordinator().coordinate(readingItemAt: logsFolder, options: [.forUploading], error: &refused) { zipped in
             do {
-                try FileManager.default.copyItem(at: zipped, to: resultUrl)
+                try FileManager.default.copyItem(at: zipped, to: staging)
             } catch {
                 kept = error
             }
         }
         if let refused { throw refused }
         if let kept { throw kept }
+
+        if FileManager.default.fileExists(atPath: resultUrl.path) {
+            _ = try FileManager.default.replaceItemAt(resultUrl, withItemAt: staging)
+        } else {
+            try FileManager.default.moveItem(at: staging, to: resultUrl)
+        }
         return resultUrl
     }
 
