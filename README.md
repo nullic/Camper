@@ -268,6 +268,23 @@ final class Article {
 | `@Virtual` | Marks a `@Relationship` as computed — excluded from init/update |
 | `@NonLinkable` | Prevents `.link` case in the relationship input enum |
 | `@Ignorable` | Makes a non-relationship property optional during input (adds `.ignore` case) |
+| `@IOKey` | Marks the key a record is found by — no store constraint, so it works under CloudKit; two or more make a compound key |
+
+**The key** — what `unique(_:in:)`, `insert(_:in:)` (update the record it finds), `delete(_:in:)`, `replace(_:in:)` and a relationship's `.link` go by — is the `@IOKey` properties; else the first set of SwiftData's `#Unique`; else the `@Attribute(.unique)` property. One property's key is its own type; two or more make `UniqueID` a struct of them:
+
+```swift
+@IOModel
+@Model
+final class Price {
+    @IOKey var shop: String
+    @IOKey var item: String
+    var amount: Decimal
+}
+
+let price = try Price.unique(Price.UniqueID(shop: "komplett", item: "XGIMI"), in: context)
+```
+
+A key is identity: `update(input:)` and an `insert` that finds the record never write it.
 
 ---
 

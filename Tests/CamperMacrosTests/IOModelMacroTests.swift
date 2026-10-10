@@ -1,3 +1,6 @@
+import SwiftParser
+import SwiftSyntax
+import SwiftSyntaxMacroExpansion
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
 import XCTest
@@ -10,6 +13,7 @@ final class IOModelMacroTests: XCTestCase {
         "Virtual": IOAttribute.self,
         "NonLinkable": IOAttribute.self,
         "Ignorable": IOAttribute.self,
+        "IOKey": IOAttribute.self,
     ]
 
     func testIOModelAppliedToNonClass() {
@@ -838,6 +842,73 @@ final class IOModelMacroTests: XCTestCase {
             """,
             macros: testMacros
         )
+    }
+
+    private func expanded(_ source: SourceFileSyntax) -> String {
+        source.expand(macros: testMacros, in: BasicMacroExpansionContext(), indentationWidth: .spaces(4)).description
+    }
+
+    func testIOKeyIsTheUniqueAttributeWithoutTheConstraint() {
+        let unique = expanded("""
+        @Model @IOModel
+        class Item {
+            @Attribute(.unique) var id: UUID
+            var name: String
+        }
+        """)
+        let key = expanded("""
+        @Model @IOModel
+        class Item {
+            @IOKey var id: UUID
+            var name: String
+        }
+        """)
+        XCTAssertEqual(key, unique.replacingOccurrences(of: "@Attribute(.unique) var id", with: "var id"))
+    }
+
+    func testUniqueMacroSetIsTheKeyAsIOKeysAre() {
+        let keys = expanded("""
+        @Model @IOModel
+        class Slot {
+            @IOKey var day: Int
+            @IOKey var hour: Int
+            var label: String
+        }
+        """)
+        let unique = expanded("""
+        @Model @IOModel
+        class Slot {
+            #Unique<Slot>([\\.day, \\.hour], [\\.label])
+            var day: Int
+            var hour: Int
+            var label: String
+        }
+        """)
+        XCTAssertEqual(unique.replacingOccurrences(of: "    #Unique<Slot>([\\.day, \\.hour], [\\.label])\n", with: ""), keys)
+    }
+
+    func testCompoundKeyFindsByAStructOfItsParts() {
+        let source = expanded("""
+        @Model @IOModel
+        class Price {
+            @IOKey var shop: String
+            @IOKey var item: String
+            var amount: Int
+        }
+        """)
+        for line in [
+            "internal struct UniqueID: Hashable, Codable, Sendable {",
+            "internal init(shop: String, item: String) {",
+            "internal var _uniqueValueShopItem: UniqueID { UniqueID(shop: self.shop, item: self.item) }",
+            "$0.shop == shopKey && $0.item == itemKey",
+            "if let exist = try unique(UniqueID(shop: input.shop, item: input.item), in: context) {",
+            "where !kept.contains(item.uniqueValue)",
+        ] {
+            XCTAssertTrue(source.contains(line), "missing: \(line)")
+        }
+        // A key is identity: an update never writes it.
+        XCTAssertFalse(source.contains("self.shop = input.shop\n        self.amount"))
+        XCTAssertFalse(source.contains("result.shop = input.shop"))
     }
 
     func testIOModelReplaceMethodNotGeneratedWithoutUniqueProperty() {

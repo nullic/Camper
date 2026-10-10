@@ -131,6 +131,7 @@ extension VariableDeclSyntax {
     var isSubscriptOutput: Bool { attributes.outputArguments?.has(label: "subscript") ?? false }
     var isSubscriptDependency: Bool { attributes.dependencyArguments?.has(label: "subscript") ?? false }
     var isIgnorable: Bool { attributes.contains(named: "Ignorable") }
+    var isKey: Bool { attributes.contains(named: "IOKey") }
     var isPassed: Bool { attributes.contains(named: "Passed") }
 
     var hasSetter: Bool {

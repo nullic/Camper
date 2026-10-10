@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `@IOKey` marks the property `@IOModel` finds a record by — `unique(_:in:)`, `insert(_:in:)` updating the record it finds, `delete(_:in:)`, `replace(_:in:)`, `.link` — without asking the store for a unique constraint. A model synced through CloudKit cannot carry `@Attribute(.unique)`, since CloudKit refuses unique constraints, and until now that meant losing everything `@IOModel` builds on the key.
+- Compound keys. Two or more `@IOKey` properties make one key: `UniqueID` becomes a `Hashable, Codable, Sendable` struct of them, in declaration order, and every key-taking method takes it — `Price.unique(Price.UniqueID(shop: "komplett", item: "XGIMI"), in: context)`. `replace(_:in:)` keeps the given keys and deletes the rest in memory, as a predicate cannot test a struct against a set.
+- SwiftData's `#Unique<T>([\.a, \.b], …)` names the key too: its first set, when no property says `@IOKey`. The key comes from `@IOKey` first, then `#Unique`, then `@Attribute(.unique)`, so a single-key model expands exactly as before.
+
 ## [1.0.17] - 2026-09-15
 
 ### Fixed

@@ -8,13 +8,14 @@ import SwiftData
 /// - `init(input:context:)` initializer from `InputModel`
 /// - `update(input:)` method for updating the model
 /// - `snapshot(includeLinks:)` for creating a codable snapshot
-/// - `UniqueFindable` conformance if an `@Attribute(.unique)` property exists
+/// - `UniqueFindable` conformance if the class has a key: its `@IOKey` properties, else the
+///   first set of SwiftData's `#Unique`, else its `@Attribute(.unique)` property
 /// - `uniqueQuery(_:)`, `unique(_:in:)`, `delete(_:in:)`, `insert(_:in:)`, `replace(_:in:)` class methods
 ///
 /// For `@Relationship` properties, generates an `Input` enum with cases:
 /// `.ignore`, `.value`, `.input`, and `.link` (unless `@NonLinkable`).
 ///
-/// The `replace(_:in:)` method (only when `@Attribute(.unique)` exists) inserts or updates
+/// The `replace(_:in:)` method (only when the class has a key) inserts or updates
 /// all provided records and **deletes** any existing records not present in the input,
 /// using a fetch predicate to avoid iterating all records in memory.
 ///
@@ -33,6 +34,25 @@ public macro IOModel() = #externalMacro(module: "CamperMacros", type: "IOModel")
 /// Virtual properties are excluded from the generated `init(input:context:)` and `update(input:)`.
 @attached(peer)
 public macro Virtual() = #externalMacro(module: "CamperMacros", type: "IOAttribute")
+
+/// Marks a stored property as the key `@IOModel` finds a record by — `unique(_:in:)`,
+/// `insert(_:in:)` updating the record it finds, `delete(_:in:)`, `replace(_:in:)` and `.link`.
+///
+/// Unlike `@Attribute(.unique)` it asks nothing of the store, so a model synced through
+/// CloudKit — which refuses unique constraints — still has one. Two or more `@IOKey`
+/// properties make a compound key: `UniqueID` is then a struct of them, in declaration order.
+/// Key properties are stored attributes (not relationships) and `Hashable`, `Codable`, `Sendable`.
+///
+///     @Model @IOModel
+///     class Price {
+///         @IOKey var shop: String
+///         @IOKey var item: String
+///         var amount: Decimal
+///     }
+///
+///     let price = try Price.unique(Price.UniqueID(shop: "komplett", item: "XGIMI"), in: context)
+@attached(peer)
+public macro IOKey() = #externalMacro(module: "CamperMacros", type: "IOAttribute")
 
 /// Prevents the `.link` case from being generated for a `@Relationship` property's input enum.
 ///

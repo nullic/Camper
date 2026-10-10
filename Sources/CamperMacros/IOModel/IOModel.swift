@@ -23,18 +23,52 @@ import SwiftSyntaxMacros
 public enum IOModel {
     // MARK: - Insert/Unique funcs
 
+    /// The key a record is found by: one property, or several as a compound `UniqueID`.
+    struct Key {
+        let variables: [VariableDeclSyntax]
+
+        var isCompound: Bool { variables.count > 1 }
+
+        /// The type `unique(_:in:)` takes.
+        var type: String {
+            isCompound ? "UniqueID" : variables[0].rawIdentifierType
+        }
+
+        /// The key of `base` — a record or an input.
+        func value(of base: String) -> String {
+            guard isCompound else { return "\(base).\(variables[0].identifier)" }
+            let fields = variables.map { "\($0.identifier): \(base).\($0.identifier)" }.joined(separator: ", ")
+            return "UniqueID(\(fields))"
+        }
+
+        init?(_ classDecl: ClassDeclSyntax) {
+            let variables = classDecl.keyVariables
+            guard !variables.isEmpty else { return nil }
+            self.variables = variables
+        }
+    }
+
     static func insertFuncsSyntax(with classDecl: ClassDeclSyntax) throws -> [DeclSyntax] {
         let className = classDecl.name.text
         let privacyModifier = classDecl.privacyModifier
 
         var result: [DeclSyntax] = []
 
-        if let unique = classDecl.uniqueVariable {
-            let uniqueName = unique.identifier
-            let uniqueType = unique.rawIdentifierType
+        let key = Key(classDecl)
+        if let key {
+            let uniqueType = key.type
 
             let uniqueQuerySyntax = try FunctionDeclSyntax("\(raw: privacyModifier) class func uniqueQuery(_ value: \(raw: uniqueType)) -> FetchDescriptor<\(raw: className)>") {
-                "var descriptor = FetchDescriptor<\(raw: className)>(predicate: #Predicate { $0.\(raw: uniqueName) == value })"
+                if key.isCompound {
+                    // A predicate takes plain values, not a struct's fields.
+                    for variable in key.variables {
+                        "let \(raw: variable.identifier)Key = value.\(raw: variable.identifier)"
+                    }
+                    let match = key.variables.map { "$0.\($0.identifier) == \($0.identifier)Key" }.joined(separator: " && ")
+                    "var descriptor = FetchDescriptor<\(raw: className)>(predicate: #Predicate { \(raw: match) })"
+                } else {
+                    "var descriptor = FetchDescriptor<\(raw: className)>(predicate: #Predicate { $0.\(raw: key.variables[0].identifier) == value })"
+                }
                 "descriptor.fetchLimit = 1"
                 "descriptor.includePendingChanges = true"
                 "return descriptor"
@@ -67,10 +101,8 @@ public enum IOModel {
         let insertSyntax = try FunctionDeclSyntax("@discardableResult \(raw: privacyModifier) class func insert(_ input: \(raw: className.asInputModel), in context: ModelContext) throws -> \(raw: className)") {
             "let result: \(raw: className)"
 
-            if let unique = classDecl.uniqueVariable {
-                let uniqueName = unique.identifier
-
-                try IfExprSyntax("if let exist = try unique(input.\(raw: uniqueName), in: context)") {
+            if let key {
+                try IfExprSyntax("if let exist = try unique(\(raw: key.value(of: "input")), in: context)") {
                     "result = exist"
                     for varDecl in classDecl.inputWritableVariables {
                         if varDecl.isIgnorable {
@@ -131,14 +163,18 @@ public enum IOModel {
 
         result.append(DeclSyntax(insertArraySyntax))
 
-        if let unique = classDecl.uniqueVariable {
-            let uniqueName = unique.identifier
-
+        if let key {
             let replaceSyntax = try FunctionDeclSyntax("@discardableResult \(raw: privacyModifier) class func replace(_ inputs: [\(raw: className.asInputModel)], in context: ModelContext) throws -> [\(raw: className)]") {
                 "let inserted = try inputs.map { try insert($0, in: context) }"
-                "let insertedIDs = inputs.map { $0.\(raw: uniqueName) }"
-                "let descriptor = FetchDescriptor<\(raw: className)>(predicate: #Predicate { !insertedIDs.contains($0.\(raw: uniqueName)) })"
-                "for item in try context.fetch(descriptor) { context.delete(item) }"
+                if key.isCompound {
+                    "let kept = Set(inputs.map { \(raw: key.value(of: "$0")) })"
+                    "for item in try context.fetch(FetchDescriptor<\(raw: className)>()) where !kept.contains(item.uniqueValue) { context.delete(item) }"
+                } else {
+                    let uniqueName = key.variables[0].identifier
+                    "let insertedIDs = inputs.map { $0.\(raw: uniqueName) }"
+                    "let descriptor = FetchDescriptor<\(raw: className)>(predicate: #Predicate { !insertedIDs.contains($0.\(raw: uniqueName)) })"
+                    "for item in try context.fetch(descriptor) { context.delete(item) }"
+                }
                 "return inserted"
             }
             result.append(DeclSyntax(replaceSyntax))
@@ -148,19 +184,41 @@ public enum IOModel {
     }
 
     static func uniqueConformanceSyntax(with classDecl: ClassDeclSyntax) -> [DeclSyntax] {
-        guard let uniqueVar = classDecl.uniqueVariable else { return [] }
+        guard let key = Key(classDecl) else { return [] }
+        let privacy = classDecl.privacyModifier
 
+        guard key.isCompound else {
+            let uniqueVar = key.variables[0]
+            let syntaxString =
+                """
+                    \(privacy) typealias UniqueID = \(uniqueVar.elementIdentifierType)
+
+                    @_implements(UniqueFindable, uniqueValue)
+                    \(privacy) var _uniqueValue\(uniqueVar.identifier.firstCapitalized): UniqueID { \(uniqueVar.identifier) }
+
+                """
+            return [DeclSyntax(stringLiteral: syntaxString)]
+        }
+
+        let fields = key.variables.map { "        \(privacy) var \($0.identifier): \($0.rawIdentifierType)" }.joined(separator: "\n")
+        let parameters = key.variables.map { "\($0.identifier): \($0.rawIdentifierType)" }.joined(separator: ", ")
+        let assignments = key.variables.map { "            self.\($0.identifier) = \($0.identifier)" }.joined(separator: "\n")
+        let name = key.variables.map(\.identifier.firstCapitalized).joined()
         let syntaxString =
             """
-                \(classDecl.privacyModifier) typealias UniqueID = \(uniqueVar.elementIdentifierType)
+                \(privacy) struct UniqueID: Hashable, Codable, Sendable {
+            \(fields)
+
+                    \(privacy) init(\(parameters)) {
+            \(assignments)
+                    }
+                }
 
                 @_implements(UniqueFindable, uniqueValue)
-                \(classDecl.privacyModifier) var _uniqueValue\(uniqueVar.identifier.firstCapitalized): UniqueID { \(uniqueVar.identifier) }
+                \(privacy) var _uniqueValue\(name): UniqueID { \(key.value(of: "self")) }
 
             """
-        return [
-            DeclSyntax(stringLiteral: syntaxString),
-        ]
+        return [DeclSyntax(stringLiteral: syntaxString)]
     }
 
     // MARK: - Input Enums
@@ -541,7 +599,7 @@ public enum IOModel {
             }
 
             try FunctionDeclSyntax("func notify()") {
-                let observable = variables.filter { !$0.isUnique }
+                let observable = variables.filter { !classDecl.isKey($0) }
                 if !observable.isEmpty {
                     "guard let object else { return }"
                     for varDecl in observable {
