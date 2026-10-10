@@ -4,9 +4,28 @@ import XCTest
 @testable import Camper
 
 final class LoggerConfiguratorTests: XCTestCase {
+    /// The logs folder is one real place, and `swift test --parallel` runs these tests in several
+    /// processes at once: one deleted the folder or the archive another was gathering. Each test
+    /// holds this lock, across processes, for as long as it runs.
+    private static let lockPath = LoggerConfigurator.logsFolder.deletingLastPathComponent().appendingPathComponent("camper-logs-tests.lock").path
+    private var lock: Int32 = -1
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        try FileManager.default.createDirectory(atPath: (Self.lockPath as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+        lock = open(Self.lockPath, O_CREAT | O_RDWR, 0o644)
+        guard lock >= 0, flock(lock, LOCK_EX) == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno), userInfo: [NSFilePathErrorKey: Self.lockPath])
+        }
+    }
+
     override func tearDown() {
         // Reset to defaults so subsequent tests start with clean configuration.
         LoggerConfigurator.configure()
+        if lock >= 0 {
+            flock(lock, LOCK_UN)
+            close(lock)
+        }
         super.tearDown()
     }
 

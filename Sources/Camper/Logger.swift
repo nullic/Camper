@@ -219,10 +219,13 @@ public enum LoggerConfigurator {
         if let refused { throw refused }
         if let kept { throw kept }
 
-        if FileManager.default.fileExists(atPath: resultUrl.path) {
-            _ = try FileManager.default.replaceItemAt(resultUrl, withItemAt: staging)
-        } else {
-            try FileManager.default.moveItem(at: staging, to: resultUrl)
+        // Put in place in one step: rename(2) replaces an archive that is there and makes one that
+        // is not, so a caller arriving meanwhile never sees it missing or half-replaced. Asking
+        // first and then moving or replacing raced — the answer was stale by the time it was used.
+        guard rename(staging.path, resultUrl.path) == 0 else {
+            let code = errno
+            try? FileManager.default.removeItem(at: staging) // a leftover staging copy is only clutter
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(code), userInfo: [NSFilePathErrorKey: resultUrl.path])
         }
         return resultUrl
     }
