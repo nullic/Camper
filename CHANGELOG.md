@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.19] - 2026-10-10
+
 ### Fixed
 - `logsToSend()` asked whether `logs.zip` was there and then replaced or moved it, and the answer could be stale by the time it was used: another process creating or deleting the archive in between made it throw «already exists» (516) or «no such file» (260). The archive is now put in place by one `rename(2)`, which replaces one that is there and makes one that is not.
 - `LoggerConfiguratorTests` failed now and then under `swift test --parallel`: they share the one real logs folder, and a test in another process deleted the folder or the archive another was gathering. Each test now holds a lock across processes.
