@@ -14,7 +14,7 @@ A Swift macro library providing dependency injection infrastructure, code genera
 ## Installation
 
 ```swift
-.package(url: "https://github.com/nullic/Camper.git", from: "1.0.16")
+.package(url: "https://github.com/nullic/Camper.git", from: "1.0.18")
 ```
 
 ```swift
