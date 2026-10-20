@@ -57,6 +57,32 @@ final class LoggerConfiguratorTests: XCTestCase {
         XCTAssertTrue(received.values.first?.contains("err") == true)
     }
 
+    func testLevelsRunInTheOrderOSLogHasThem() {
+        let levels: [LogLevel] = [.debug, .info, .notice, .warning, .error, .critical, .fault]
+        XCTAssertEqual(levels, levels.sorted())
+        XCTAssertEqual(levels.map(\.rawValue), Array(0 ..< 7))
+    }
+
+    @available(*, deprecated)
+    func testVerboseIsAnotherNameForDebug() {
+        XCTAssertEqual(LogLevel.verbose, .debug)
+    }
+
+    func testNoticeIsKeptApartFromInfoByTheMinimum() throws {
+        try? FileManager.default.removeItem(at: LoggerConfigurator.logsFolder)
+        LoggerConfigurator.configure(writeLogFile: true, minimumLogLevel: .notice)
+
+        TestLogger.test.info("dropped info")
+        TestLogger.test.notice("kept notice")
+        LoggerConfigurator.flush()
+
+        let files = try FileManager.default.contentsOfDirectory(at: LoggerConfigurator.logsFolder, includingPropertiesForKeys: nil)
+        let text = try files.map { try String(contentsOf: $0, encoding: .utf8) }.joined()
+        XCTAssertTrue(text.contains(" NOTICE [TEST]"), text)
+        XCTAssertTrue(text.contains("kept notice"), text)
+        XCTAssertFalse(text.contains("dropped info"), text)
+    }
+
     func testEnvironmentVariableGatingSuppressesLogsWhenAbsent() {
         let received = SyncList<String>()
         LoggerConfigurator.configure(useEnvironmentVariables: true, onError: { received.append($0) })

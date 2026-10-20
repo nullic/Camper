@@ -514,7 +514,7 @@ LoggerConfigurator.configure(
 )
 ```
 
-`minimumLogLevel` accepts `Camper.LogLevel` (`.verbose`, `.debug`, `.info`, `.warning`, `.error`, `.critical`, `.fault`) — nothing else needs importing to choose one.
+`minimumLogLevel` accepts `Camper.LogLevel` (`.debug`, `.info`, `.notice`, `.warning`, `.error`, `.critical`, `.fault` — the levels `os.Logger` has) — nothing else needs importing to choose one.
 
 ### Per-category gating with environment variables
 

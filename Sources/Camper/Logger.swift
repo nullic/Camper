@@ -15,39 +15,21 @@ public protocol Logger {
     func fault(_ message: String, file: String, function: String, line: Int)
 }
 
+/// The levels `os.Logger` has, in order. `minimumLogLevel` keeps what is at or above it.
 public enum LogLevel: Int, Sendable, Comparable {
-    case verbose = 0
-    case debug = 1
-    case info = 2
+    case debug = 0
+    case info = 1
+    case notice = 2
     case warning = 3
     case error = 4
     case critical = 5
     case fault = 6
 
+    @available(*, deprecated, renamed: "debug")
+    public static let verbose = LogLevel.debug
+
     public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
         lhs.rawValue < rhs.rawValue
-    }
-}
-
-private enum InternalLogLevel {
-    case debug
-    case info
-    case notice
-    case warning
-    case error
-    case critical
-    case fault
-
-    /// The `LogLevel.rawValue` this level answers to when it is held against the minimum.
-    var rank: Int {
-        switch self {
-        case .debug: return LogLevel.debug.rawValue
-        case .info, .notice: return LogLevel.info.rawValue
-        case .warning: return LogLevel.warning.rawValue
-        case .error: return LogLevel.error.rawValue
-        case .critical: return LogLevel.critical.rawValue
-        case .fault: return LogLevel.fault.rawValue
-        }
     }
 
     var name: String {
@@ -78,16 +60,16 @@ public extension Logger where Self: RawRepresentable {
 }
 
 public extension Logger {
-    private func log(_ level: InternalLogLevel, _ message: String, file: String, function: String, line: Int) {
+    private func log(_ level: LogLevel, _ message: String, file: String, function: String, line: Int) {
         let config = LoggerConfigurator.snapshot
         let envOK = !config.useEnvironmentVariables || ProcessInfo.processInfo.environment["\(category)_LOGS"] != nil
-        guard envOK, config.minimumLogLevel.rawValue <= level.rank else { return }
+        guard envOK, config.minimumLogLevel <= level else { return }
 
         let location = "\((file as NSString).lastPathComponent):\(line) -- \(function)"
         config.writer?.append(level: level.name, "[\(category)][\(location)]: \(message)")
         os.Logger(subsystem: subsystem, category: category).log(level: level.osLogType, "[\(location)]: \(message)")
 
-        if level.rank >= LogLevel.error.rawValue {
+        if level >= .error {
             config.onError?(message)
         }
     }
