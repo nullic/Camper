@@ -1,7 +1,6 @@
 import Foundation
 import os
 import OSLog
-@preconcurrency import SwiftyBeaver
 
 public protocol Logger {
     var subsystem: String { get }
@@ -28,18 +27,6 @@ public enum LogLevel: Int, Sendable, Comparable {
     public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
-
-    fileprivate var swiftyBeaver: SwiftyBeaver.Level {
-        switch self {
-        case .verbose: return .verbose
-        case .debug: return .debug
-        case .info: return .info
-        case .warning: return .warning
-        case .error: return .error
-        case .critical: return .critical
-        case .fault: return .fault
-        }
-    }
 }
 
 private enum InternalLogLevel {
@@ -51,14 +38,27 @@ private enum InternalLogLevel {
     case critical
     case fault
 
-    var swiftyBeaver: SwiftyBeaver.Level {
+    /// The `LogLevel.rawValue` this level answers to when it is held against the minimum.
+    var rank: Int {
         switch self {
-        case .debug: return .debug
-        case .info, .notice: return .info
-        case .warning: return .warning
-        case .error: return .error
-        case .critical: return .critical
-        case .fault: return .fault
+        case .debug: return LogLevel.debug.rawValue
+        case .info, .notice: return LogLevel.info.rawValue
+        case .warning: return LogLevel.warning.rawValue
+        case .error: return LogLevel.error.rawValue
+        case .critical: return LogLevel.critical.rawValue
+        case .fault: return LogLevel.fault.rawValue
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .debug: return "DEBUG"
+        case .info: return "INFO"
+        case .notice: return "NOTICE"
+        case .warning: return "WARNING"
+        case .error: return "ERROR"
+        case .critical: return "CRITICAL"
+        case .fault: return "FAULT"
         }
     }
 
@@ -79,16 +79,15 @@ public extension Logger where Self: RawRepresentable {
 
 public extension Logger {
     private func log(_ level: InternalLogLevel, _ message: String, file: String, function: String, line: Int) {
-        let sbLevel = level.swiftyBeaver
         let config = LoggerConfigurator.snapshot
         let envOK = !config.useEnvironmentVariables || ProcessInfo.processInfo.environment["\(category)_LOGS"] != nil
-        guard envOK, config.minimumLogLevel.rawValue <= sbLevel.rawValue else { return }
+        guard envOK, config.minimumLogLevel.rawValue <= level.rank else { return }
 
         let location = "\((file as NSString).lastPathComponent):\(line) -- \(function)"
-        SwiftyBeaver.custom(level: sbLevel, message: "[\(category)][\(location)]: \(message)")
+        config.writer?.append(level: level.name, "[\(category)][\(location)]: \(message)")
         os.Logger(subsystem: subsystem, category: category).log(level: level.osLogType, "[\(location)]: \(message)")
 
-        if sbLevel.rawValue >= SwiftyBeaver.Level.error.rawValue {
+        if level.rank >= LogLevel.error.rawValue {
             config.onError?(message)
         }
     }
@@ -130,6 +129,7 @@ public enum LoggerConfigurator {
         var writeLogFile: Bool = false
         var minimumLogLevel: LogLevel = .debug
         var onError: (@Sendable (String) -> Void)?
+        var writer: LogFileWriter?
     }
 
     private static let stateLock = OSAllocatedUnfairLock<State>(initialState: State())
@@ -147,35 +147,21 @@ public enum LoggerConfigurator {
         minimumLogLevel: LogLevel = .debug,
         onError: (@Sendable (String) -> Void)? = nil
     ) {
-        stateLock.withLock {
-            $0.useEnvironmentVariables = useEnvironmentVariables
-            $0.writeLogFile = writeLogFile
-            $0.minimumLogLevel = minimumLogLevel
-            $0.onError = onError
+        let writer = writeLogFile ? LogFileWriter(folder: logsFolder) : nil
+        let previous = stateLock.withLock { state in
+            let previous = state.writer
+            state.useEnvironmentVariables = useEnvironmentVariables
+            state.writeLogFile = writeLogFile
+            state.minimumLogLevel = minimumLogLevel
+            state.onError = onError
+            state.writer = writer
+            return previous
         }
+        previous?.close()
 
-        SwiftyBeaver.removeAllDestinations()
         if writeLogFile {
-            addFileDestination()
+            debugPrint("Logs output: \(logsFolder.path)")
         }
-    }
-
-    private static func addFileDestination() {
-        try? FileManager.default.createDirectory(at: logsFolder, withIntermediateDirectories: true)
-
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        let date = formatter.string(from: Date())
-        let unique = String(UUID().uuidString.prefix(8))
-
-        let url = logsFolder.appendingPathComponent("\(date)-\(unique).log")
-        let destination = FileDestination(logFileURL: url)
-        destination.logFileMaxSize = 15 * 1024 * 1024
-        SwiftyBeaver.addDestination(destination)
-
-        debugPrint("Logs output: \(url.path)")
     }
 
     public static func clearLogs() throws {
@@ -186,12 +172,9 @@ public enum LoggerConfigurator {
             return
         }
 
-        SwiftyBeaver.removeAllDestinations()
+        // The writer lets go of its file first and starts a new one with the next line.
+        snapshot.writer?.close()
         try FileManager.default.removeItem(atPath: logsFolder.path)
-
-        if snapshot.writeLogFile {
-            addFileDestination()
-        }
     }
 
     public static func logsToSend() throws -> URL {
@@ -236,6 +219,6 @@ public enum LoggerConfigurator {
     }
 
     public static func flush() {
-        _ = SwiftyBeaver.flush(secondTimeout: 10)
+        snapshot.writer?.flush()
     }
 }

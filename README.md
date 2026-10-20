@@ -22,7 +22,7 @@ A Swift macro library providing dependency injection infrastructure, code genera
 ```
 
 Swift 6.0 or newer, macOS 14 / iOS 17 / Mac Catalyst 17 or newer. The package carries
-SwiftyBeaver and swift-syntax, and nothing else.
+swift-syntax, and nothing else.
 
 ---
 
@@ -505,7 +505,7 @@ Syncs a value with `UserDefaults`. Supports a custom `ValueTransformer` and publ
 
 ## Logging
 
-`Camper.Logger` is a protocol-based wrapper over both SwiftyBeaver and OSLog. Configure once at app startup:
+`Camper.Logger` is a protocol-based wrapper over OSLog that can also keep a file log. Configure once at app startup:
 
 ```swift
 LoggerConfigurator.configure(
@@ -514,7 +514,7 @@ LoggerConfigurator.configure(
 )
 ```
 
-`minimumLogLevel` accepts `Camper.LogLevel` (`.verbose`, `.debug`, `.info`, `.warning`, `.error`, `.critical`, `.fault`) — you don't need to import SwiftyBeaver to choose one.
+`minimumLogLevel` accepts `Camper.LogLevel` (`.verbose`, `.debug`, `.info`, `.warning`, `.error`, `.critical`, `.fault`) — nothing else needs importing to choose one.
 
 ### Per-category gating with environment variables
 
@@ -538,10 +538,10 @@ LoggerConfigurator.configure(onError: { message in
 
 ### File logs
 
-When `writeLogFile: true`, logs are written to a `.log` file under `LoggerConfigurator.logsFolder` (defaults to `Application Support/logs`). Helpers:
+When `writeLogFile: true`, logs are written to a `.log` file under `LoggerConfigurator.logsFolder` (defaults to `Application Support/logs`), one line each: `2026-10-20 14:03:11.482+02:00 ERROR [Network][File.swift:42 -- fn()]: message`. A file is closed at 5 MB and the next line starts another; only the newest five files are kept. Helpers:
 
 - `LoggerConfigurator.flush()` — flush buffered output.
-- `LoggerConfigurator.clearLogs()` — remove all log files (re-creates a fresh destination if file logging is enabled).
+- `LoggerConfigurator.clearLogs()` — remove all log files (the next line, if file logging is enabled, starts a fresh one).
 - `LoggerConfigurator.logsToSend()` — flush, gather the folder into a sibling `.zip` through the system's own file coordination, and return that file's URL. (Was `zipLogs()`, which still answers and is deprecated.)
 
 ---

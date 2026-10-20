@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **SwiftyBeaver is no longer a dependency of Camper.** It was used for one thing, appending lines to a file, and it has not been updated since November 2024. Camper now writes the file itself (`LogFileWriter`): one serial queue, the file held open and appended to with one `write` per line. Nothing public changed.
+- The file log is now bounded. SwiftyBeaver's `logFileMaxSize` only applies when `logFileAmount > 1`, and it was 1, so the 15 MB that was set did nothing and every `configure()` left one more file that only grew. A file is now closed at 5 MB, the next line starts another, and only the newest five are kept.
+- A log line reads `2026-10-20 14:03:11.482+02:00 ERROR [Network][File.swift:42 -- fn()]: message`: it carries the date and the UTC offset (the file name is in UTC), and no longer the `Logger.swift.log(_:_:file:function:line:):88` of Camper's own call that SwiftyBeaver put in front of every message. `.notice` is written as `NOTICE` rather than `INFO`.
+- The log file is created by the first line written to it rather than by `configure()`, so a session that logs nothing leaves no empty file.
+
 ## [1.0.19] - 2026-10-10
 
 ### Fixed

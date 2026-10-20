@@ -13,7 +13,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "600.0.0" ..< "604.0.0"),
-        .package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver.git", from: "2.0.0"),
     ],
     targets: [
         .macro(
@@ -24,10 +23,7 @@ let package = Package(
             ]
         ),
 
-        .target(name: "Camper", dependencies: [
-            "CamperMacros",
-            .product(name: "SwiftyBeaver", package: "SwiftyBeaver"),
-        ]),
+        .target(name: "Camper", dependencies: ["CamperMacros"]),
 
         .executableTarget(name: "CamperClient", dependencies: ["Camper"]),
 
