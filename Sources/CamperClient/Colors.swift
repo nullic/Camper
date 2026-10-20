@@ -12,7 +12,7 @@ let colorString: Color = #hexColor("#00ffff")
     let uiColorDynamic: UIColor = #hexUIColor("#eeffff", "#ffaaff")
 #endif
 
-#if canImport(AppKit)
+#if canImport(AppKit) && !targetEnvironment(macCatalyst)
     import AppKit
 
     let nsColorInt: NSColor = #hexNSColor(0xFF0000FF)
@@ -29,7 +29,7 @@ func checkColors() {
         print("\(uiColorString)")
     #endif
 
-    #if canImport(AppKit)
+    #if canImport(AppKit) && !targetEnvironment(macCatalyst)
         print("\(nsColorInt)")
         print("\(nsColorString)")
         print("\(nsColorDynamic)")

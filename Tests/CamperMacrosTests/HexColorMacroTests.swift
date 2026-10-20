@@ -120,9 +120,15 @@ final class HexColorMacroTests: XCTestCase {
             let color = #hexUIColor("FF0000", "0000FF")
             """,
             expandedSource: """
-            let color = UIColor {
-                $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
-            }
+            let color = { () -> UIColor in
+                #if os(watchOS)
+                return UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                #else
+                return UIColor {
+                    $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                }
+                #endif
+            }()
             """,
             macros: testMacros
         )
@@ -134,9 +140,15 @@ final class HexColorMacroTests: XCTestCase {
             let color = #hexUIColor(0xFF0000, 0x0000FF)
             """,
             expandedSource: """
-            let color = UIColor {
-                $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
-            }
+            let color = { () -> UIColor in
+                #if os(watchOS)
+                return UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                #else
+                return UIColor {
+                    $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
+                }
+                #endif
+            }()
             """,
             macros: testMacros
         )
@@ -177,7 +189,9 @@ final class HexColorMacroTests: XCTestCase {
             """,
             expandedSource: """
             let color = {
-                #if canImport(UIKit)
+                #if os(watchOS)
+                return Color(red: 0.0, green: 0.0, blue: 1.0, opacity: 1.0)
+                #elseif canImport(UIKit)
                 return Color(uiColor: UIColor {
                         $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
                     })
@@ -201,7 +215,9 @@ final class HexColorMacroTests: XCTestCase {
             """,
             expandedSource: """
             let color = {
-                #if canImport(UIKit)
+                #if os(watchOS)
+                return Color(red: 0.0, green: 0.0, blue: 1.0, opacity: 1.0)
+                #elseif canImport(UIKit)
                 return Color(uiColor: UIColor {
                         $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1.0)
                     })
@@ -286,9 +302,15 @@ final class HexColorMacroTests: XCTestCase {
             let color = #cssUIColor("#FFFFFF", "rgb(0, 0, 0)")
             """,
             expandedSource: """
-            let color = UIColor {
-                $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
-            }
+            let color = { () -> UIColor in
+                #if os(watchOS)
+                return UIColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+                #else
+                return UIColor {
+                    $0.userInterfaceStyle == .light ? UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0) : UIColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+                }
+                #endif
+            }()
             """,
             macros: testMacros
         )

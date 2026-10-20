@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The two-colour macros did not compile for watchOS: `#hexUIColor` and `#cssUIColor` with a light and a dark value expanded to `UIColor { $0.userInterfaceStyle … }`, and `#hexColor(light, dark)` to a `Color(uiColor: UIColor { … })`, and watchOS has neither `UIColor(dynamicProvider:)` nor `userInterfaceStyle`. It showed as the Swift Package Index failing every watchOS build of 1.1.0, since the index builds the whole package, `CamperClient` and its colour sample included. On watchOS the macros now expand to the dark value, the only appearance it has; everywhere else the expansion is as it was. 1.1.0 said tvOS and watchOS build — only the library did, and it was only checked by building that one scheme.
+- `CamperClient` no longer takes its `#hexNSColor` sample on Mac Catalyst, where there is no `NSColor`.
+
 ## [1.1.0] - 2026-10-20
 
 ### Changed

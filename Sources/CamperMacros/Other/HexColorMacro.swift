@@ -18,7 +18,17 @@ public struct HexColorMacro: ExpressionMacro {
             if node.arguments.count > 1, let argument = node.arguments.last {
                 let (red2, green2, blue2, opacity2) = try scan(argument: argument, macroName: macroName)
                 let darkString = "UIColor(red: \(red2), green: \(green2), blue: \(blue2), alpha: \(opacity2))"
-                return "UIColor { $0.userInterfaceStyle == .light ? \(raw: lightString) : \(raw: darkString) }"
+                // watchOS has neither `UIColor(dynamicProvider:)` nor `userInterfaceStyle`, and
+                // its interface is always dark, so the dark value is the colour there.
+                return """
+                { () -> UIColor in
+                #if os(watchOS)
+                return \(raw: darkString)
+                #else
+                return UIColor { $0.userInterfaceStyle == .light ? \(raw: lightString) : \(raw: darkString) }
+                #endif
+                }()
+                """
             } else {
                 return "\(raw: lightString)"
             }
@@ -53,9 +63,13 @@ public struct HexColorMacro: ExpressionMacro {
             let nsLight = "NSColor(red: \(red), green: \(green), blue: \(blue), alpha: \(opacity))"
             let nsDark = "NSColor(red: \(red2), green: \(green2), blue: \(blue2), alpha: \(opacity2))"
             let plain = "Color(red: \(red), green: \(green), blue: \(blue), opacity: \(opacity))"
+            let plainDark = "Color(red: \(red2), green: \(green2), blue: \(blue2), opacity: \(opacity2))"
+            // watchOS has UIKit but no dynamic `UIColor`, and its interface is always dark.
             return """
             {
-            #if canImport(UIKit)
+            #if os(watchOS)
+            return \(raw: plainDark)
+            #elseif canImport(UIKit)
             return Color(uiColor: UIColor { $0.userInterfaceStyle == .light ? \(raw: uiLight) : \(raw: uiDark) })
             #elseif canImport(AppKit)
             return Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? \(raw: nsDark) : \(raw: nsLight) })
