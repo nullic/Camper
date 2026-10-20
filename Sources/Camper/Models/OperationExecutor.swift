@@ -97,13 +97,10 @@ public actor OperationExecutor {
         }
     }
 
-    @available(macOS 15.0, *)
-    @available(iOS 18.0, *)
     public func stream(id: OperationID) -> sending any AsyncSequence<OperationState, Never> {
         makeStream(id: id)
     }
 
-    @available(iOS 18.0, *)
     public func wait(id: OperationID) async throws {
         // Subscribe before snapshotting state so a completion event between
         // the snapshot and iteration cannot be missed.

@@ -73,7 +73,6 @@ public macro NonLinkable() = #externalMacro(module: "CamperMacros", type: "IOAtt
 @attached(peer)
 public macro Ignorable() = #externalMacro(module: "CamperMacros", type: "IOAttribute")
 
-@available(iOS 17, *)
 public protocol UniqueFindable {
     associatedtype UniqueID
     var uniqueValue: UniqueID { get }

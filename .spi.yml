@@ -1,0 +1,9 @@
+version: 1
+builder:
+  configs:
+    - platform: ios
+    - platform: macos-spm
+    - platform: macos-xcodebuild
+    - platform: visionos
+    - platform: tvos
+    - platform: watchos

@@ -84,7 +84,7 @@ public macro cssColor(_ stringLiteral: StringLiteralType) -> Color = #externalMa
 
 #endif
 
-#if canImport(AppKit)
+#if canImport(AppKit) && !targetEnvironment(macCatalyst)
     /// Creates a dynamic `NSColor` that adapts to light/dark appearance using hex string literals.
     ///
     ///     let adaptive = #hexNSColor("FFFFFF", "000000")

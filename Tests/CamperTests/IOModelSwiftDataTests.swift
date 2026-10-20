@@ -80,7 +80,6 @@ final class Price {
 }
 
 /// SwiftData's own compound constraint names the key.
-@available(macOS 15, iOS 18, *)
 @IOModel
 @Model
 final class Slot {
@@ -338,7 +337,6 @@ final class IOModelSwiftDataTests: XCTestCase {
     }
 
     func testUniqueMacroSetIsTheKey() throws {
-        guard #available(macOS 15, iOS 18, *) else { throw XCTSkip("#Unique needs macOS 15") }
         let schema = Schema([Slot.self])
         let container = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
         let context = ModelContext(container)

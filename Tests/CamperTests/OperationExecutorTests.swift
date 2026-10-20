@@ -163,7 +163,6 @@ final class OperationExecutorTests: XCTestCase {
 
     // MARK: - Bug fixes
 
-    @available(macOS 15.0, *)
     func testStreamMulticastAllSubscribersReceiveAllEvents() async throws {
         let executor = OperationExecutor()
         let id: OperationID = "multicast"
@@ -204,7 +203,6 @@ final class OperationExecutorTests: XCTestCase {
         XCTAssertEqual(s2, [.inProgress, .success], "subscriber 2 missed events: \(s2)")
     }
 
-    @available(iOS 18.0, *)
     func testWaitReturnsImmediatelyForAlreadyFinishedOperation() async throws {
         let executor = OperationExecutor()
         let id: OperationID = "wait.finished"
@@ -227,7 +225,6 @@ final class OperationExecutorTests: XCTestCase {
         }
     }
 
-    @available(iOS 18.0, *)
     func testWaitThrowsWhenOperationFails() async {
         struct Boom: Error, CustomStringConvertible {
             var description: String { "boom-detail" }
@@ -248,7 +245,6 @@ final class OperationExecutorTests: XCTestCase {
         }
     }
 
-    @available(iOS 18.0, *)
     func testWaitReturnsForRunningOperation() async throws {
         let executor = OperationExecutor()
         let id: OperationID = "wait.live"

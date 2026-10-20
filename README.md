@@ -21,7 +21,7 @@ A Swift macro library providing dependency injection infrastructure, code genera
 .target(name: "YourTarget", dependencies: ["Camper"])
 ```
 
-Swift 6.0 or newer, macOS 14 / iOS 17 / Mac Catalyst 17 or newer. The package carries
+Swift 6.2 or newer (Xcode 26), macOS 15 / iOS 18 / Mac Catalyst 18 / tvOS 18 / watchOS 11 / visionOS 2 or newer. The package carries
 swift-syntax, and nothing else.
 
 ---
